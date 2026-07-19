@@ -1,12 +1,13 @@
 /**
- * סקריפט קליטת PDF (FR-9, אפיון סעיף 9) — ניתן להרצה חוזרת בכל רענון תוכן.
+ * סקריפט קליטת מסמכים (FR-9, אפיון סעיף 9) — ניתן להרצה חוזרת בכל רענון תוכן.
  *
  * שימוש:
- *   npm run ingest              קליטת כל ה-PDF בתיקיית knowledge/
+ *   npm run ingest              קליטת כל קובצי ה-PDF וה-TXT בתיקיית knowledge/
  *   npm run ingest -- --force   קליטה גם אם בדיקת השפיות נכשלה (לא מומלץ)
  *
  * לכל מסמך: פענוח → בדיקת שפיות עברית → חלוקה לקטעים עם metadata →
  * embeddings (Voyage) → החלפה אטומית של קטעי המסמך ב-pgvector.
+ * בקובצי TXT אין עמודים — ה-page נשמר null וציון המקור הוא שם המסמך בלבד.
  */
 import { config as loadEnv } from "dotenv";
 loadEnv({ path: ".env.local" });
@@ -35,12 +36,13 @@ interface ManifestEntry {
 
 interface Chunk {
   content: string;
-  page: number;
+  /** מספר עמוד ב-PDF; null בקובצי טקסט (אין עמודים) */
+  page: number | null;
 }
 
 function slugify(fileName: string): string {
   return fileName
-    .replace(/\.pdf$/i, "")
+    .replace(/\.(pdf|txt)$/i, "")
     .replace(/\s+/g, "-")
     .toLowerCase();
 }
@@ -77,7 +79,7 @@ function hebrewSanityCheck(text: string): { ok: boolean; reason?: string } {
 }
 
 /** חלוקה לקטעים בגבולות מילים, עם חפיפה */
-function chunkPage(pageText: string, page: number): Chunk[] {
+function chunkPage(pageText: string, page: number | null): Chunk[] {
   const text = pageText.replace(/\s+/g, " ").trim();
   if (!text) return [];
   if (text.length <= CHUNK_SIZE) return [{ content: text, page }];
@@ -114,9 +116,9 @@ async function main() {
     process.exit(1);
   }
 
-  const files = (await readdir(KNOWLEDGE_DIR)).filter((f) => f.toLowerCase().endsWith(".pdf"));
+  const files = (await readdir(KNOWLEDGE_DIR)).filter((f) => /\.(pdf|txt)$/i.test(f));
   if (files.length === 0) {
-    console.error("לא נמצאו קובצי PDF בתיקיית knowledge/.");
+    console.error("לא נמצאו קובצי PDF או TXT בתיקיית knowledge/.");
     process.exit(1);
   }
 
@@ -130,12 +132,21 @@ async function main() {
   for (const file of files) {
     const meta = manifest.get(file) ?? { file };
     const documentId = slugify(file);
-    const title = meta.title ?? file.replace(/\.pdf$/i, "");
+    const title = meta.title ?? file.replace(/\.(pdf|txt)$/i, "");
+    const isTxt = /\.txt$/i.test(file);
     process.stdout.write(`📄 ${file} … `);
 
-    const buffer = await readFile(path.join(KNOWLEDGE_DIR, file));
-    const pdf = await getDocumentProxy(new Uint8Array(buffer));
-    const { text: pages } = await extractText(pdf, { mergePages: false });
+    let pages: string[];
+    let pageNumbers: (number | null)[];
+    if (isTxt) {
+      pages = [await readFile(path.join(KNOWLEDGE_DIR, file), "utf8")];
+      pageNumbers = [null];
+    } else {
+      const buffer = await readFile(path.join(KNOWLEDGE_DIR, file));
+      const pdf = await getDocumentProxy(new Uint8Array(buffer));
+      ({ text: pages } = await extractText(pdf, { mergePages: false }));
+      pageNumbers = pages.map((_, i) => i + 1);
+    }
 
     const fullText = pages.join("\n");
     const sanity = hebrewSanityCheck(fullText);
@@ -146,7 +157,7 @@ async function main() {
     }
     if (!sanity.ok) console.log(`⚠️  ${sanity.reason} — ממשיכים בגלל --force`);
 
-    const chunks: Chunk[] = pages.flatMap((pageText, i) => chunkPage(pageText, i + 1));
+    const chunks: Chunk[] = pages.flatMap((pageText, i) => chunkPage(pageText, pageNumbers[i]));
     if (chunks.length === 0) {
       console.log("⚠️  דילוג — לא חולץ טקסט");
       skipped.push(`${file}: לא חולץ טקסט`);
@@ -184,7 +195,11 @@ async function main() {
     }
 
     totalChunks += chunks.length;
-    console.log(`✅ ${pages.length} עמודים → ${chunks.length} קטעים (תחום: ${meta.domain ?? "כללי"})`);
+    console.log(
+      isTxt
+        ? `✅ קובץ טקסט → ${chunks.length} קטעים (תחום: ${meta.domain ?? "כללי"})`
+        : `✅ ${pages.length} עמודים → ${chunks.length} קטעים (תחום: ${meta.domain ?? "כללי"})`,
+    );
   }
 
   console.log(`\nסה"כ נטענו ${totalChunks} קטעים.`);

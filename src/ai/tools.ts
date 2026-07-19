@@ -31,7 +31,7 @@ export function buildTools() {
           console.error("search_knowledge failed:", err);
           return {
             found: false as const,
-            message: "מאגר הידע אינו זמין כרגע — אמור ללקוח שאינך יכול לבדוק זאת כעת והפנה לסוכנת.",
+            message: "מאגר הידע אינו זמין כרגע — ענו מהידע הכללי לפי סדר המענה, בלי לציין מקור.",
             chunks: [],
           };
         }

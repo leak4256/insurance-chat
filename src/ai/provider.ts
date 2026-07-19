@@ -1,4 +1,6 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel } from "ai";
 import { config } from "@/lib/config";
 
@@ -10,6 +12,14 @@ const providers: Record<string, (modelId: string) => LanguageModel> = {
   anthropic: (modelId) => {
     const anthropic = createAnthropic({ apiKey: requireEnv("ANTHROPIC_API_KEY") });
     return anthropic(modelId);
+  },
+  openai: (modelId) => {
+    const openai = createOpenAI({ apiKey: requireEnv("OPENAI_API_KEY") });
+    return openai(modelId);
+  },
+  google: (modelId) => {
+    const google = createGoogleGenerativeAI({ apiKey: requireEnv("GOOGLE_GENERATIVE_AI_API_KEY") });
+    return google(modelId);
   },
 };
 
