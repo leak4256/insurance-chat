@@ -1,0 +1,393 @@
+<title>אפיון — צ'אט AI ללקוחות סוכנות ביטוח</title>
+<style>
+  :root {
+    --paper: #F7FAF9;
+    --surface: #FFFFFF;
+    --ink: #22333B;
+    --muted: #5C7078;
+    --accent: #0E7C86;
+    --accent-soft: #0E7C8614;
+    --amber: #B45309;
+    --amber-soft: #B4530914;
+    --line: #D8E2E0;
+    --code-bg: #EDF3F2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0F181B;
+      --surface: #162226;
+      --ink: #DCE8E6;
+      --muted: #8FA6A3;
+      --accent: #4FC3CB;
+      --accent-soft: #4FC3CB1A;
+      --amber: #E0A25E;
+      --amber-soft: #E0A25E1A;
+      --line: #24363B;
+      --code-bg: #1B2B30;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0F181B; --surface: #162226; --ink: #DCE8E6; --muted: #8FA6A3;
+    --accent: #4FC3CB; --accent-soft: #4FC3CB1A; --amber: #E0A25E; --amber-soft: #E0A25E1A;
+    --line: #24363B; --code-bg: #1B2B30;
+  }
+  :root[data-theme="light"] {
+    --paper: #F7FAF9; --surface: #FFFFFF; --ink: #22333B; --muted: #5C7078;
+    --accent: #0E7C86; --accent-soft: #0E7C8614; --amber: #B45309; --amber-soft: #B4530914;
+    --line: #D8E2E0; --code-bg: #EDF3F2;
+  }
+  html { background: var(--paper); }
+  body { margin: 0; }
+  .doc {
+    font-family: "Segoe UI Variable Text", "Segoe UI", "Assistant", "Rubik", "Arial Hebrew", Arial, sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    line-height: 1.65;
+    padding: 3rem 1.25rem 5rem;
+  }
+  .sheet { max-width: 47rem; margin: 0 auto; }
+
+  /* Header */
+  .eyebrow {
+    font-size: .78rem; letter-spacing: .14em; color: var(--accent);
+    font-weight: 600; margin-bottom: .75rem;
+  }
+  h1 {
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.25; margin: 0 0 1rem;
+    font-weight: 750; text-wrap: balance; letter-spacing: -0.01em;
+  }
+  .meta { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1.1rem 0 0; }
+  .chip {
+    font-size: .8rem; padding: .28rem .7rem; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); font-weight: 600;
+  }
+  .chip.warm { background: var(--amber-soft); color: var(--amber); }
+  .lede { color: var(--muted); font-size: 1.02rem; max-width: 40rem; margin-top: 1rem; }
+  header.top { padding-bottom: 2rem; border-bottom: 2px solid var(--accent); margin-bottom: .5rem; }
+
+  /* Sections */
+  section { margin-top: 3rem; }
+  h2 {
+    font-size: 1.28rem; font-weight: 720; margin: 0 0 .9rem;
+    display: flex; align-items: baseline; gap: .6rem; text-wrap: balance;
+  }
+  h2 .num {
+    font-variant-numeric: tabular-nums; color: var(--accent); font-size: .95rem;
+    font-weight: 700; min-width: 1.6rem;
+  }
+  h3 { font-size: 1.02rem; font-weight: 700; margin: 1.6rem 0 .5rem; }
+  p, li { max-width: 44rem; }
+  ul, ol { padding-inline-start: 1.3rem; margin: .5rem 0 1rem; }
+  li { margin-bottom: .35rem; }
+  strong { font-weight: 700; }
+
+  /* Tables */
+  .tbl { overflow-x: auto; margin: 1rem 0 1.4rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  th, td { text-align: right; padding: .55rem .85rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  th { font-size: .8rem; letter-spacing: .04em; color: var(--muted); font-weight: 700; background: var(--accent-soft); }
+  td.good { color: var(--accent); font-weight: 700; white-space: nowrap; }
+  .tnum { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* Code + callouts */
+  code {
+    font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+    font-size: .86em; background: var(--code-bg); padding: .1em .38em; border-radius: 5px;
+    direction: ltr; unicode-bidi: embed;
+  }
+  .callout {
+    border-right: 3px solid var(--amber); background: var(--amber-soft);
+    padding: .8rem 1rem; border-radius: 8px 0 0 8px; margin: 1rem 0; font-size: .94rem;
+  }
+  .callout.info { border-right-color: var(--accent); background: var(--accent-soft); }
+
+  /* Diagrams */
+  .diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 1rem; overflow-x: auto; margin: 1.2rem 0; }
+  pre.mermaid { margin: 0; display: flex; justify-content: center; }
+
+  /* Flow list (auth) */
+  .flow { counter-reset: step; list-style: none; padding: 0; margin: 1rem 0; }
+  .flow li {
+    counter-increment: step; position: relative; padding: .35rem 2.3rem .35rem 0; margin: 0;
+  }
+  .flow li::before {
+    content: counter(step); position: absolute; right: 0; top: .42rem;
+    width: 1.55rem; height: 1.55rem; border-radius: 50%; background: var(--accent-soft);
+    color: var(--accent); font-size: .8rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    font-variant-numeric: tabular-nums;
+  }
+  footer { margin-top: 4rem; padding-top: 1.2rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .85rem; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="doc" dir="rtl" lang="he">
+<div class="sheet">
+
+<header class="top">
+  <div class="eyebrow">מסמך אפיון · גרסה 1.0 · 15.07.2026</div>
+  <h1>צ'אט AI ללקוחות סוכנות ביטוח</h1>
+  <p class="lede">
+    עוזר חכם בעברית: שאלות כלליות על ביטוח לכל אחד, ותשובות אישיות על פוליסות —
+    רק אחרי הזדהות מאובטחת בתוך הצ'אט, עם שליפה חיה מ‑Surense.
+  </p>
+  <div class="meta">
+    <span class="chip">עברית · RTL</span>
+    <span class="chip">~100 לקוחות</span>
+    <span class="chip">≤ $50 לחודש</span>
+    <span class="chip warm">סטטוס: לאישור</span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="num">1</span>רקע ומטרות</h2>
+  <p>סוכנות הביטוח מפעילה את מערכת <strong>Surense</strong> לניהול לקוחות. הצ'אט יאפשר:</p>
+  <ul>
+    <li><strong>שאלות כלליות על ביטוח</strong> — ללא התחברות, מבוסס על ~40 מסמכי PDF של ידע ביטוחי.</li>
+    <li><strong>שאלות על פרטים אישיים</strong> (פוליסות, כיסויים) — רק אחרי הזדהות: ת"ז + אימייל + קוד חד־פעמי למייל.</li>
+  </ul>
+  <p><strong>טון:</strong> הסבר מושגי ביטוח בפשטות — ברור גם לבן/בת 15, תמציתי.</p>
+  <div class="tbl"><table>
+    <tr><th>יעד</th><th>ערך</th></tr>
+    <tr><td>משתמשים</td><td class="tnum">~100 לקוחות, ~50 פעילים</td></tr>
+    <tr><td>תקציב חודשי כולל</td><td class="tnum">≤ $50 (בפועל ~$48–53 כולל תוסף Surense; שלב 1: ~$11–16)</td></tr>
+    <tr><td>שפה וממשק</td><td>עברית בלבד, RTL</td></tr>
+    <tr><td>עדכון מאגר הידע</td><td>כל ~חודשיים (40 PDF)</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="num">2</span>סיפורי משתמש</h2>
+  <div class="tbl"><table>
+    <tr><th>#</th><th>בתור…</th><th>אני רוצה…</th><th>כדי ש…</th></tr>
+    <tr><td class="tnum">US‑1</td><td>לקוח אנונימי</td><td>לשאול "מה זה השתתפות עצמית?" בלי להירשם</td><td>אקבל תשובה מיידית ופשוטה</td></tr>
+    <tr><td class="tnum">US‑2</td><td>לקוח אנונימי</td><td>לשאול "מה הכיסוי שלי?"</td><td>אקבל הסבר שנדרשת הזדהות + טופס התחברות בתוך הצ'אט</td></tr>
+    <tr><td class="tnum">US‑3</td><td>לקוח מזוהה</td><td>לשאול על הפוליסות שלי</td><td>אקבל תשובה מנתוני Surense האמיתיים שלי</td></tr>
+    <tr><td class="tnum">US‑4</td><td>לקוח</td><td>לדעת איך לפנות לבן־אדם</td><td>אקבל את פרטי הסוכנת רחלי (מייל) כשהבוט לא עוזר</td></tr>
+    <tr><td class="tnum">US‑5</td><td>הסוכן</td><td>לרענן את מסמכי הידע</td><td>הצ'אט יענה לפי הגרסאות העדכניות (שלב 2: מסך העלאה)</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="num">3</span>דרישות פונקציונליות</h2>
+  <ul>
+    <li><strong>FR‑1</strong> צ'אט זורם (streaming) בעברית, RTL, עיצוב נקי ומודרני.</li>
+    <li><strong>FR‑2</strong> שיחה אנונימית זמינה מיידית; שאלות כלליות נענות מ‑RAG על מסמכי הידע.</li>
+    <li><strong>FR‑3</strong> שאלה אישית ממשתמש לא מזוהה ← הסבר + כרטיס התחברות בתוך הצ'אט.</li>
+    <li><strong>FR‑4</strong> הזדהות: ת"ז + אימייל ← אימות מול Surense ← קוד בן 6 ספרות למייל ← session.</li>
+    <li><strong>FR‑5</strong> אחרי הזדהות: תשובות אישיות משליפה חיה מ‑Surense, ללא שמירת נתונים אישיים.</li>
+    <li><strong>FR‑6</strong> תשובה מבוססת־מסמכים כוללת ציון מקור (שם מסמך + עמוד).</li>
+    <li><strong>FR‑7</strong> הפניה לסוכנת אנושית = <strong>הודעה בלבד</strong>: "אפשר לפנות לסוכנת רחלי במייל &lt;כתובת&gt;". אין ערוץ צ'אט אנושי חי; הכתובת מוגדרת בקונפיגורציה (<code>AGENT_EMAIL</code> — להשלמה).</li>
+    <li><strong>FR‑8</strong> ניתוק יזום ופקיעת session אוטומטית.</li>
+    <li><strong>FR‑9</strong> סקריפט קליטת PDF שניתן להרצה חוזרת בכל רענון תוכן.</li>
+    <li><strong>FR‑10</strong> כל עוד המשתמש לא מזוהה — <strong>כפתור "התחברות" בראש הצ'אט</strong> עם כיתוב מזמין ("התחברו כדי לשאול על הביטוחים שלכם"); לחיצה פותחת את כרטיס ההתחברות בשיחה. אחרי הזדהות — תג "מחובר/ת" + ניתוק.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">4</span>ארכיטקטורה</h2>
+  <div class="diagram">
+    <pre class="mermaid">
+flowchart TB
+    U["לקוח (דפדפן)"] --> FE["Next.js 15 — ממשק צ'אט RTL"]
+    FE --> API["API Routes (שרת)"]
+    API --> AI["Claude Haiku 4.5 דרך Vercel AI SDK"]
+    AI -- "search_knowledge" --> VDB[("Supabase pgvector")]
+    AI -- "get_customer_data (מזוהים בלבד)" --> SUR["Surense API"]
+    API -- "קוד OTP" --> MAIL["Resend"]
+    ING["סקריפט קליטת PDF"] --> VDB
+    </pre>
+  </div>
+  <p>כל הלוגיקה הרגישה — מפתחות, קריאות Surense, רישום כלים למודל — <strong>בצד שרת בלבד</strong>. הדפדפן מקבל רק את זרם התשובה ורכיבי UI.</p>
+</section>
+
+<section>
+  <h2><span class="num">5</span>סטאק טכנולוגי</h2>
+  <div class="tbl"><table>
+    <tr><th>שכבה</th><th>בחירה</th><th>רציונל</th></tr>
+    <tr><td>Framework</td><td>Next.js 15 + TypeScript</td><td>קוד אחד ל‑UI ול‑API; אריזה קלה כ‑widget בהמשך</td></tr>
+    <tr><td>UI</td><td>Tailwind CSS v4 + shadcn/ui</td><td>עיצוב מודרני, תמיכת RTL מלאה</td></tr>
+    <tr><td>Chat runtime</td><td>Vercel AI SDK v5</td><td>Streaming + כרטיס התחברות בתוך הצ'אט (Generative UI)</td></tr>
+    <tr><td>מודל שפה</td><td>Claude Haiku 4.5</td><td class="tnum">$1/$5 למיליון טוקנים; עברית חזקה; ~$5–10 לחודש</td></tr>
+    <tr><td>מסד + וקטורים</td><td>Supabase (חינם)</td><td>Postgres + pgvector + אחסון בשירות אחד</td></tr>
+    <tr><td>Embeddings</td><td>Voyage voyage-3.5-lite</td><td>רב־לשוני (עברית), עלות זניחה ב‑40 מסמכים</td></tr>
+    <tr><td>אימייל OTP</td><td>Resend (חינם)</td><td>עד 3,000 מיילים לחודש — שפע ל‑100 לקוחות</td></tr>
+    <tr><td>פריסה</td><td>Railway</td><td>~$5 לחודש; שרת Node מלא — streaming ללא מגבלות זמן; deploy אוטומטי מ‑GitHub; region אירופה</td></tr>
+    <tr><td>Surense</td><td>מודול SurenseClient</td><td>ממשק דק מעל ה‑REST API לצורך בדיקות</td></tr>
+  </table></div>
+
+  <h3>5.1 הפשטת ספק AI</h3>
+  <ul>
+    <li>כל קריאות המודל דרך ממשק הספקים של Vercel AI SDK — הקוד לא מייבא SDK של ספק ישירות.</li>
+    <li>בחירת מודל בקונפיגורציה: <code>CHAT_MODEL=anthropic/claude-haiku-4-5</code> — מעבר ל‑Sonnet או לספק אחר הוא שינוי env, לא שינוי קוד.</li>
+    <li>ממשק <code>Embedder</code> עם מימוש Voyage — החלפת ספק embeddings מחייבת רק אינדוקס מחדש של המסמכים.</li>
+    <li>גבול מודול אחד <code>ai/</code>: מודל, embedder ו‑system prompt חיים שם; שאר האפליקציה תלויה רק בממשק.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">6</span>אבטחה</h2>
+  <h3>6.1 תהליך הזדהות</h3>
+  <ol class="flow">
+    <li>לקוח שואל שאלה אישית ← מופיע כרטיס התחברות בתוך הצ'אט.</li>
+    <li>הלקוח מזין ת"ז + אימייל.</li>
+    <li>השרת מאמת את הצמד מול Surense (‏<code>POST /customers/search</code>‏, התאמה על שני השדות).</li>
+    <li>נשלח קוד בן 6 ספרות למייל (תוקף 10 דקות, עד 5 ניסיונות, השהיית שליחה חוזרת 60 שניות).</li>
+    <li>קוד נכון ← ‏session cookie מסוג httpOnly + Secure + SameSite עם ה‑UUID של הלקוח; פקיעה אחרי 30 דקות חוסר פעילות.</li>
+  </ol>
+  <p><strong>מניעת enumeration:</strong> תשובת שגיאה אחידה — "אם הפרטים נכונים, נשלח קוד" — בין אם הלקוח קיים ובין אם לא.</p>
+
+  <h3>6.2 בידוד נתונים והגנות</h3>
+  <ul>
+    <li>הכלי <code>get_customer_data</code> <strong>לא מקבל פרמטר מזהה לקוח</strong> — השרת מזריק את ה‑UUID מה‑session המאומת. המודל פיזית לא יכול לבקש נתונים של לקוח אחר.</li>
+    <li>הכלי נרשם למודל רק כשה‑session מאומת (רישום צד־שרת לפי מצב ההזדהות).</li>
+    <li><strong>אין נתונים אישיים במנוחה:</strong> שליפה חיה בכל בקשה; לא נשמרים ולא נכתבים ללוגים.</li>
+    <li>Rate limiting על מסלולי OTP · HTTPS בלבד · CSP · לוג ביקורת של אירועי התחברות.</li>
+    <li>טוקני OAuth של Surense — בצד שרת בלבד, מוצפנים ב‑Supabase, לעולם לא בדפדפן.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">7</span>Guardrails</h2>
+  <div class="tbl"><table>
+    <tr><th>הגנה</th><th>מימוש</th></tr>
+    <tr><td>תשובות מעוגנות בלבד</td><td>עובדות על פוליסות — רק מתוך קטעים שאוחזרו או נתוני Surense. אין מידע ← "אני לא יודע/ת — אפשר לפנות לסוכנת רחלי במייל"</td></tr>
+    <tr><td>גבולות נושא</td><td>ביטוח בלבד; סירוב מנומס לשאלות משפטיות, רפואיות, השקעות ונושאים זרים</td></tr>
+    <tr><td>הסתייגות</td><td>תשובה על כיסוי אישי מציינת שהמידע המחייב הוא במסמכי הפוליסה / אצל הסוכן</td></tr>
+    <tr><td>הגנת prompt‑injection</td><td>קטעי PDF ונתוני Surense מתוחמים כ"נתונים", לא הוראות; כלי הנתונים האישיים ללא פרמטר מזהה</td></tr>
+    <tr><td>נתיב מילוט אנושי</td><td>כשהבוט לא עוזר / שאלה מחוץ לתחום — הודעה: "אפשר לפנות לסוכנת רחלי במייל" (כתובת מהקונפיגורציה)</td></tr>
+    <tr><td>מניעת שימוש לרעה</td><td>הגבלת קצב הודעות ל‑session + אורך הודעה מקסימלי</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="num">8</span>זיכרון שיחה</h2>
+  <ul>
+    <li><strong>שלבים 1–2 — זיכרון ב‑session בלבד:</strong> ההיסטוריה נשלחת למודל בחלון הזזה; מעל ~20 הודעות — סיכום אוטומטי של ההודעות הישנות. שום דבר לא נשמר במסד.</li>
+    <li><strong>שלב 3 — היסטוריה מתמשכת:</strong> שמירת שיחות ב‑Supabase; משתמש מזוהה רואה שיחות קודמות; היסטוריה אנונימית נמחקת אחרי 30 יום.</li>
+    <li><strong>היגיינת מידע אישי:</strong> הודעות עם נתוני Surense מסומנות ו<strong>אינן נשמרות לעולם</strong> — שמירה על עקרון "אין נתונים אישיים במנוחה".</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">9</span>צינור RAG</h2>
+  <p>סקריפט קליטה: פענוח 40 ה‑PDF ← חלוקה לקטעים (~500 טוקנים עם חפיפה) ← embedding ← טעינה ל‑pgvector. מורץ מחדש בכל רענון תוכן.</p>
+  <div class="callout">
+    חילוץ טקסט עברי מ‑PDF רגיש לבעיות סדר תווים (RTL). שלב הקליטה כולל בדיקת שפיות
+    אוטומטית (זיהוי טקסט הפוך/מקוטע) ודגימה ידנית של מסמך לפני טעינה.
+  </div>
+  <h3>9.1 Metadata לכל קטע</h3>
+  <div class="tbl"><table>
+    <tr><th>שדה</th><th>שימוש</th></tr>
+    <tr><td>שם קובץ + כותרת מסמך</td><td>ציטוט מקור בתשובות</td></tr>
+    <tr><td>מספר עמוד + כותרת סעיף</td><td>ציטוט מדויק + בדיקת נאמנות בהערכה</td></tr>
+    <tr><td>תחום ביטוח (רכב / דירה / בריאות / חיים…)</td><td>סינון אחזור כשנושא השיחה ידוע</td></tr>
+    <tr><td>גרסת מסמך + תאריך קליטה</td><td>רענון: החלפת PDF מטעינה מחדש רק את קטעי אותו מסמך</td></tr>
+    <tr><td>שפה</td><td>הרחבה עתידית</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="num">10</span>הערכת RAG</h2>
+  <ul>
+    <li><strong>Golden set:</strong> ‏~40–50 זוגות שאלה־תשובה בעברית שנכתבים עם הסוכן (1–2 לכל מסמך), כולל שאלות־מלכודת שהתשובה הנכונה להן היא "אין לי מידע על זה".</li>
+    <li><strong>הערכה דו־שכבתית</strong> (סקריפט TypeScript בריפו, ללא שירות בתשלום):
+      <ol>
+        <li><em>אחזור:</em> recall@k — האם הקטע הנכון מופיע ב‑top‑k?</li>
+        <li><em>תשובות:</em> LLM‑כשופט — Claude Sonnet מדרג נאמנות להקשר ונכונות מול תשובת הזהב (רק בהרצות הערכה — עלות זניחה).</li>
+      </ol>
+    </li>
+    <li><strong>מתי רצים:</strong> אחרי כל רענון PDF ואחרי כל שינוי ב‑chunking / embeddings / פרומפט / מודל.</li>
+    <li><strong>ספי מעבר:</strong> recall@5 ≥ 90% · נאמנות ≥ 95% · אפס תשובות מומצאות בשאלות המלכודת.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">11</span>אינטגרציית Surense</h2>
+  <p>מקור: <a href="https://developer.surense.com/">developer.surense.com</a> · Base URL:‏ <code>https://api.surense.com/api/v1</code></p>
+  <ul>
+    <li><strong>אימות:</strong> OAuth 2.0 Authorization Code (‏<code>auth.surense.com</code>‏), scope‏ <code>customers:read</code>. הסוכן מאשר את האפליקציה פעם אחת; השרת שומר ומרענן טוקנים (מוצפנים, לעולם לא בדפדפן).</li>
+    <li><strong>אימות זהות לקוח:</strong> ‏<code>POST /customers/search</code> עם פילטרים (שוויון על <code>idNumber</code> + <code>email1</code>‏, <code>filtersOperator: "and"</code>). התאמה על שניהם = תנאי לשליחת קוד OTP. באובייקט הלקוח: <code>idType</code> (1 = ת"ז), <code>idNumber</code>, <code>email1</code>/<code>email2</code>.</li>
+    <li><strong>שליפת פרטי לקוח:</strong> ‏<code>GET /customers/{id}</code> לפי UUID שנשמר ב‑session (60+ שדות).</li>
+    <li><strong>נתוני פוליסות — מקטע Products:</strong> ‏<code>GET /products/types</code> + <code>POST /products/search</code> — ככל הנראה המוצרים הביטוחיים בתיק הלקוח (scope:‏ <code>global:user</code>). סכמת התשובה ואופן הסינון לפי לקוח אינם מתועדים; יש endpoint גילוי <code>GET /{entity}/fields</code> — <strong>נוודא בקריאת ניסיון ברגע שיש הרשאות</strong>.</li>
+    <li><strong>Customer Reports</strong> (‏<code>/customers/{id}/reports/*</code>‏): הפקה/שליחה של דוחות PDF ללקוח לפי providerId. לא מקור הנתונים לצ'אט — רלוונטי אולי לשלב 3.</li>
+    <li><strong>Scopes נדרשים (מצטבר):</strong> ‏<code>customers:read</code> + <code>global:user</code>.</li>
+    <li><strong>עלות והפעלה:</strong> גישת ה‑API היא תוסף בתשלום בחשבון הסוכנות — <strong>120 ₪ + מע"מ לחודש</strong> (≈ $37). הפעלה בשירות עצמי מתוך החשבון (קטגוריית API). נדרש רק משלב 2. נותר לוודא: איפה מקבלים את מפתחות ה‑OAuth אחרי ההפעלה.</li>
+  </ul>
+  <h3>11.1 שאלות פתוחות ל‑Surense (לשלוח כמו שהן)</h3>
+  <ol>
+    <li>האם קיימת סביבת Sandbox לבדיקות, ומהן מגבלות הקצב (rate limits)?</li>
+    <li>איך נרשמים כאפליקציית OAuth, ומה ה‑grant המומלץ לשרת־אל־שרת (refresh token ארוך־חיים או client credentials)?</li>
+  </ol>
+  <div class="callout info">
+    <strong>נענו מהתיעוד (15.07.2026):</strong> שמות שדות זהות (<code>idNumber</code>, <code>email1</code>) ✓ ·
+    מיקום משוער של נתוני הפוליסות (Products) ✓ — נותר אימות טכני בקריאת ניסיון.
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">12</span>אפיון UI/UX</h2>
+  <ul>
+    <li><strong>מבנה:</strong> מסך צ'אט אחד, נקי ומודרני; בועות הודעה, אינדיקטור הקלדה, streaming.</li>
+    <li><strong>RTL מלא:</strong> ‏<code>dir="rtl"</code>‏, ‏<code>lang="he"</code>‏, טיפוגרפיה עברית נעימה.</li>
+    <li><strong>כפתור התחברות בכותרת (FR‑10):</strong> כל עוד המשתמש לא מזוהה — כפתור "התחברות" בראש הצ'אט עם כיתוב מזמין ("התחברו כדי לשאול על הביטוחים שלכם"); לחיצה פותחת את כרטיס ההתחברות בשיחה. אחרי הזדהות — תג "מחובר/ת" + ניתוק.</li>
+    <li><strong>התחברות בתוך הצ'אט:</strong> כרטיס inline (ת"ז + אימייל ← שדה קוד) שמופיע כהודעה בשיחה — נפתח מהכפתור בכותרת או אוטומטית בשאלה אישית; אחרי הצלחה — המשך שיחה טבעי.</li>
+    <li><strong>מצבי שיחה:</strong> אנונימי (שאלות כלליות) ⟷ מזוהה (הכול) — מעבר חלק בלי לאבד הקשר.</li>
+    <li><strong>ציטוטי מקור:</strong> תחת תשובה מבוססת־מסמכים — שם המסמך והעמוד.</li>
+    <li><strong>פנייה לסוכנת:</strong> כשהבוט לא עוזר — הודעה בצ'אט: "אפשר לפנות לסוכנת רחלי במייל &lt;כתובת&gt;" (מקונפיגורציה; להשלמה). אין ערוץ אנושי חי.</li>
+    <li><strong>נגישות:</strong> ניווט מקלדת, ניגודיות תקינה, תמיכת קורא מסך בהודעות נכנסות.</li>
+    <li><strong>שלב 3:</strong> אריזה כ‑widget להטמעה באתר הסוכנות (bubble בפינת המסך).</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">13</span>עלויות חודשיות</h2>
+  <div class="tbl"><table>
+    <tr><th>רכיב</th><th>עלות</th><th>נדרש משלב</th></tr>
+    <tr><td>Railway (אחסון)</td><td class="tnum">~$5</td><td class="tnum">1</td></tr>
+    <tr><td>Supabase (free tier)</td><td class="tnum">$0</td><td class="tnum">1</td></tr>
+    <tr><td>Resend (free tier)</td><td class="tnum">$0</td><td class="tnum">2</td></tr>
+    <tr><td>Voyage embeddings</td><td class="tnum">&lt;$1</td><td class="tnum">1</td></tr>
+    <tr><td>Claude Haiku 4.5 (~500 הודעות משתמש/חודש)</td><td class="tnum">~$5–10</td><td class="tnum">1</td></tr>
+    <tr><td><strong>תוסף Surense API/Webhooks</strong> (120 ₪ + מע"מ)</td><td class="tnum">~$37</td><td class="tnum"><strong>2</strong></td></tr>
+    <tr><td><strong>סה"כ שלב 1 (MVP)</strong></td><td class="good">~$11–16</td><td></td></tr>
+    <tr><td><strong>סה"כ מלא (משלב 2)</strong></td><td class="tnum"><strong>~$48–53</strong> ⚠️ סביב התקרה</td><td></td></tr>
+  </table></div>
+  <p style="color: var(--muted); font-size: .9rem;">
+    הנחות: ~50 משתמשים פעילים × ~10 הודעות לחודש, ~2 קריאות מודל להודעה (כלי + תשובה);
+    ‏Prompt caching מוריד את העלות עוד. תוסף ה‑Surense נספר כחלק מעלות הצ'אט (החלטה: 15.07.2026)
+    ונדרש רק משלב 2 — שלב 1 רץ בלעדיו. התרחיש המלא גבולי מול תקרת ה‑$50 (עמוס: עד ~$53);
+    כרית ביטחון: caching אגרסיבי יותר, ללא שינוי ארכיטקטורה.
+  </p>
+</section>
+
+<section>
+  <h2><span class="num">14</span>מפת דרכים</h2>
+  <div class="tbl"><table>
+    <tr><th>שלב</th><th>תכולה</th></tr>
+    <tr><td><strong>שלב 1 — MVP</strong></td><td>צ'אט כללי בעברית + RAG עם metadata + guardrails + golden set להערכת RAG + סקריפט קליטת PDF</td></tr>
+    <tr><td><strong>שלב 2 — אזור אישי</strong></td><td>התחברות מול Surense + OTP למייל + שאלות אישיות + מסך העלאת PDF לסוכן</td></tr>
+    <tr><td><strong>שלב 3 — הרחבות</strong></td><td>היסטוריית שיחות מתמשכת + widget להטמעה + זיכרון העדפות (אופציונלי) + הקשחות לפי תשובות Surense</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="num">15</span>סיכונים ותלויות</h2>
+  <div class="tbl"><table>
+    <tr><th>סיכון / תלות</th><th>חומרה</th><th>טיפול</th></tr>
+    <tr><td>סכמת Products (פוליסות) לא מתועדת</td><td>בינונית</td><td>אימות עצמי בקריאת ניסיון (<code>GET /products/fields</code> + search) ברגע שיש הרשאות; לא חוסם את שלב 1</td></tr>
+    <tr><td>אין Sandbox מתועד ב‑Surense</td><td>בינונית</td><td>שאלה פתוחה 11.1; עד אז בדיקות מול לקוח־דמה בחשבון הסוכן</td></tr>
+    <tr><td>חילוץ טקסט עברי מ‑PDF</td><td>בינונית</td><td>בדיקת שפיות בקליטה + דגימה ידנית (סעיף 9)</td></tr>
+    <tr><td>איכות תשובות במודל זול</td><td>נמוכה</td><td>הערכת RAG שוטפת; שדרוג ל‑Sonnet בשינוי קונפיג</td></tr>
+  </table></div>
+</section>
+
+<footer>
+  מסמך אפיון · צ'אט AI ללקוחות סוכנות ביטוח · גרסה 1.0 · 15.07.2026 ·
+  קובץ מקור: <code>insurance-chat/docs/characterization.md</code>
+</footer>
+
+</div>
+</div>
