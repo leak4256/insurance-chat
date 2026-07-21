@@ -10,6 +10,11 @@ import { buildSystemPrompt } from "@/ai/system-prompt";
 import { buildTools } from "@/ai/tools";
 import { config } from "@/lib/config";
 import { checkRateLimit } from "@/lib/rate-limit";
+import {
+  customerSessionSetCookieHeader,
+  getCustomerSession,
+  type CustomerSession,
+} from "@/lib/session";
 
 export const maxDuration = 120;
 
@@ -84,6 +89,14 @@ export async function POST(req: Request) {
     return jsonError(413, `ההודעה ארוכה מדי (מקסימום ${config.chat.maxMessageChars} תווים).`);
   }
 
+  // מצב הזדהות (שלב 2): קובע אילו כלים נרשמים למודל — רישום צד-שרת בלבד (אפיון 6.2)
+  let session: CustomerSession | null = null;
+  try {
+    session = await getCustomerSession();
+  } catch {
+    // SESSION_SECRET לא מוגדר — הצ'אט ממשיך במצב אנונימי
+  }
+
   try {
     let windowed = messages;
     let historySummary: string | undefined;
@@ -95,13 +108,19 @@ export async function POST(req: Request) {
 
     const result = streamText({
       model: getChatModel(),
-      system: buildSystemPrompt({ historySummary }),
+      system: buildSystemPrompt({
+        historySummary,
+        customerFirstName: session ? session.firstName : null,
+      }),
       messages: convertToModelMessages(windowed),
-      tools: buildTools(),
+      tools: buildTools(session),
       stopWhen: stepCountIs(5),
     });
 
-    return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse({
+      // הארכת session מתגלגלת: כל בקשה מאומתת מאפסת את חלון 30 הדקות (אפיון 6.1)
+      headers: session ? { "Set-Cookie": customerSessionSetCookieHeader(session) } : undefined,
+    });
   } catch (err) {
     console.error("chat route error:", err);
     return jsonError(500, "משהו השתבש אצלנו. נסו שוב בעוד רגע.");

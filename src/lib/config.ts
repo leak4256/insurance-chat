@@ -32,4 +32,53 @@ export const config = {
     /** מספר הודעות מקסימלי בחלון */
     max: Number(process.env.RATE_LIMIT_MAX ?? 20),
   },
+
+  /** הזדהות לקוחות (אפיון סעיף 6.1) */
+  auth: {
+    /** סוד לחתימת cookies (session + OTP). חובה בשלב 2 */
+    sessionSecret: process.env.SESSION_SECRET ?? "",
+    /** תוקף session — פקיעה אחרי 30 דקות חוסר פעילות */
+    sessionTtlMs: Number(process.env.SESSION_TTL_MS ?? 30 * 60_000),
+    /** תוקף קוד OTP — 10 דקות */
+    otpTtlMs: Number(process.env.OTP_TTL_MS ?? 10 * 60_000),
+    /** מספר ניסיונות מקסימלי לקוד */
+    otpMaxAttempts: Number(process.env.OTP_MAX_ATTEMPTS ?? 5),
+    /** השהיה בין שליחות חוזרות של קוד (שניות) */
+    otpResendCooldownSec: Number(process.env.OTP_RESEND_COOLDOWN_SEC ?? 60),
+    /** הגבלת קצב ייעודית למסלולי ההזדהות: ניסיונות לכל IP בחלון */
+    rateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 8),
+    rateLimitWindowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS ?? 15 * 60_000),
+  },
+
+  /** שליחת אימייל OTP דרך Resend (אפיון סעיף 5) */
+  resend: {
+    apiKey: process.env.RESEND_API_KEY ?? "",
+    /** כתובת השולח. לבדיקות אפשר onboarding@resend.dev */
+    from: process.env.RESEND_FROM ?? "onboarding@resend.dev",
+  },
+
+  /**
+   * אינטגרציית Surense דרך Make.com (רוויזיה 20.07.2026 — ר' src/lib/surense.ts).
+   * אין גישה ישירה ל-API; תרחיש Make עם Custom Webhook משמש מתווך.
+   */
+  surense: {
+    /** כתובת ה-Custom Webhook של תרחיש ה-Make (https://hook.eu?.make.com/...) */
+    makeWebhookUrl: process.env.MAKE_WEBHOOK_URL ?? "",
+    /** ה-API Key שהוגדר על ה-webhook ב-Make (נשלח בכותרת x-make-apikey) */
+    makeWebhookSecret: process.env.MAKE_WEBHOOK_SECRET ?? "",
+    /** תקרת המתנה לתשובת התרחיש (Make עשוי להיות איטי מ-API ישיר) */
+    timeoutMs: Number(process.env.MAKE_TIMEOUT_MS ?? 30_000),
+  },
+
+  /** כתובת האפליקציה */
+  appUrl: process.env.APP_URL ?? "http://localhost:3000",
+
+  /** מסך הסוכן (העלאת PDF + חיבור Surense) */
+  admin: {
+    password: process.env.ADMIN_PASSWORD ?? "",
+    /** תוקף session של הסוכן */
+    sessionTtlMs: Number(process.env.ADMIN_SESSION_TTL_MS ?? 2 * 60 * 60_000),
+    /** שם ה-bucket ב-Supabase Storage לקובצי הידע */
+    storageBucket: process.env.KNOWLEDGE_BUCKET ?? "knowledge",
+  },
 } as const;

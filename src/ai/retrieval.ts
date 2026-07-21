@@ -2,7 +2,7 @@ import { embedder } from "./embedder";
 import { getSupabase } from "@/lib/supabase";
 import { config } from "@/lib/config";
 
-export const INSURANCE_DOMAINS = ["רכב", "דירה", "בריאות", "חיים", "נסיעות", "עסק", "כללי"] as const;
+export { INSURANCE_DOMAINS } from "@/lib/domains";
 
 export interface RetrievedChunk {
   id: string;

@@ -6,13 +6,16 @@ import { config } from "./config";
  */
 const hits = new Map<string, number[]>();
 
-export function checkRateLimit(key: string): { allowed: boolean; retryAfterSec?: number } {
+export function checkRateLimit(
+  key: string,
+  limits: { windowMs: number; max: number } = config.rateLimit,
+): { allowed: boolean; retryAfterSec?: number } {
   const now = Date.now();
-  const windowStart = now - config.rateLimit.windowMs;
+  const windowStart = now - limits.windowMs;
   const timestamps = (hits.get(key) ?? []).filter((t) => t > windowStart);
 
-  if (timestamps.length >= config.rateLimit.max) {
-    const retryAfterSec = Math.ceil((timestamps[0] + config.rateLimit.windowMs - now) / 1000);
+  if (timestamps.length >= limits.max) {
+    const retryAfterSec = Math.ceil((timestamps[0] + limits.windowMs - now) / 1000);
     hits.set(key, timestamps);
     return { allowed: false, retryAfterSec };
   }

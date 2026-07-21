@@ -69,7 +69,8 @@ async function generateAnswer(question: string): Promise<string> {
     model: getChatModel(),
     system: buildSystemPrompt(),
     prompt: question,
-    tools: buildTools(),
+    // ההערכה רצה תמיד במצב אנונימי (שאלות כלליות בלבד)
+    tools: buildTools(null),
     stopWhen: stepCountIs(5),
   });
   return text;
