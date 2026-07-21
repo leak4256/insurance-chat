@@ -29,6 +29,10 @@ function hasLoginRequest(message: UIMessage): boolean {
 export function Chat() {
   const [auth, setAuth] = useState<AuthState>({ authenticated: false });
   const [headerCardOpen, setHeaderCardOpen] = useState(false);
+  // מזהה ההודעה שאחריה נפתח כרטיס הכותרת — מעגן אותו במקומו בשיחה,
+  // אחרת גם אישור "התחברתם בהצלחה" היה נדחף אחרי כל הודעה חדשה.
+  // null = נפתח לפני שהייתה הודעה כלשהי → מוצג בראש השיחה.
+  const [headerCardAnchorId, setHeaderCardAnchorId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -68,6 +72,9 @@ export function Chat() {
     return null;
   }, [messages]);
 
+  // כרטיס הכותרת מוצג רק כשאין כבר כרטיס שנפתח מתוך השיחה (מניעת כפילות)
+  const showHeaderCard = headerCardOpen && lastLoginRequestId === null;
+
   function submit(text: string) {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
@@ -83,17 +90,23 @@ export function Chat() {
     if (fromTool) sendMessage({ text: "התחברתי ✅" });
   }
 
+  function openHeaderCard() {
+    setHeaderCardAnchorId(messages.length > 0 ? messages[messages.length - 1].id : null);
+    setHeaderCardOpen(true);
+  }
+
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     setAuth({ authenticated: false });
     setHeaderCardOpen(false);
+    setHeaderCardAnchorId(null);
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ChatHeader
         auth={auth}
-        onLoginClick={() => setHeaderCardOpen(true)}
+        onLoginClick={openHeaderCard}
         onLogout={handleLogout}
       />
 
@@ -116,6 +129,11 @@ export function Chat() {
             </div>
           )}
 
+          {/* כרטיס כותרת שנפתח לפני ההודעה הראשונה — מעוגן בראש השיחה */}
+          {showHeaderCard && headerCardAnchorId === null && (
+            <LoginCard onSuccess={(name) => handleLoginSuccess(name, false)} />
+          )}
+
           {messages.map((message) => (
             <div key={message.id} className="flex flex-col gap-3">
               {(message.role === "user" || hasVisibleText(message) || busy) && (
@@ -125,13 +143,12 @@ export function Chat() {
               {message.id === lastLoginRequestId && (
                 <LoginCard onSuccess={(name) => handleLoginSuccess(name, true)} />
               )}
+              {/* כרטיס הכותרת מעוגן להודעה שאחריה נפתח — ולא נדחף לתחתית */}
+              {showHeaderCard && message.id === headerCardAnchorId && (
+                <LoginCard onSuccess={(name) => handleLoginSuccess(name, false)} />
+              )}
             </div>
           ))}
-
-          {/* כרטיס מכפתור הכותרת — רק כשאין כבר כרטיס שנפתח מתוך השיחה */}
-          {headerCardOpen && lastLoginRequestId === null && (
-            <LoginCard onSuccess={(name) => handleLoginSuccess(name, false)} />
-          )}
 
           {status === "submitted" && <TypingIndicator />}
 

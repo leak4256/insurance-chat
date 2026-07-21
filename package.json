@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.86",
+    "@ai-sdk/google": "^2.0.82",
+    "@ai-sdk/openai": "^2.0.114",
     "@ai-sdk/react": "^2.0.216",
     "@supabase/supabase-js": "^2.110.6",
     "ai": "^5.0.214",
