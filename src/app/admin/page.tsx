@@ -103,7 +103,7 @@ export default function AdminPage() {
       <main className="flex min-h-dvh items-center justify-center bg-muted/30 px-4">
         <form onSubmit={login} className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm">
           <h1 className="mb-1 text-lg font-semibold">מסך ניהול — הסוכנות</h1>
-          <p className="mb-4 text-sm text-muted-foreground">העלאת מסמכי ידע וחיבור Surense</p>
+          <p className="mb-4 text-sm text-muted-foreground">ניהול מאגר הידע של הצ&apos;אט</p>
           <Input
             type="password"
             value={password}
@@ -127,7 +127,9 @@ export default function AdminPage() {
       <header className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">מסך ניהול — הסוכנות</h1>
-          <p className="text-sm text-muted-foreground">{"מאגר הידע של הצ'אט וחיבור Surense"}</p>
+          <p className="text-sm text-muted-foreground">
+            {"מסמכי הידע שהצ'אט עונה מהם, וסטטוס החיבור לשורנס"}
+          </p>
         </div>
         <Button variant="ghost" size="sm" onClick={logout}>
           <LogOut aria-hidden />

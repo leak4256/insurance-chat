@@ -31,7 +31,7 @@ export function ChatHeader({
           </div>
           <div>
             <h1 className="text-base font-semibold leading-tight">העוזר הדיגיטלי של הסוכנות</h1>
-            <p className="text-xs text-muted-foreground">שאלות על ביטוח, בפשטות ובעברית</p>
+            <p className="text-xs text-muted-foreground">שאלות על ביטוח ופיננסים, בפשטות ובעברית</p>
           </div>
         </div>
         {!AUTH_ENABLED ? (

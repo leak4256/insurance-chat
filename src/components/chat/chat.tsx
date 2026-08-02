@@ -116,8 +116,7 @@ export function Chat() {
             <div className="my-10 flex flex-col items-center gap-4 text-center">
               <h2 className="text-xl font-semibold">שלום! 👋</h2>
               <p className="max-w-md text-sm text-muted-foreground">
-                אני העוזר הדיגיטלי של הסוכנות. אפשר לשאול אותי כל שאלה כללית על ביטוח —
-                ואני אענה בפשטות, על סמך מסמכי הידע של הסוכנות.
+                אני העוזר הדיגיטלי של הסוכנות. תוכל לשאול אותי כל שאלה על ביטוח ופיננסים ועל המוצרים שלך
               </p>
               <div className="flex flex-wrap justify-center gap-2">
                 {SUGGESTIONS.map((q) => (
@@ -174,7 +173,7 @@ export function Chat() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="כתבו שאלה על ביטוח…"
+            placeholder="מה אתם רוצים לדעת?"
             maxLength={MAX_MESSAGE_CHARS}
             aria-label="הודעה לעוזר הדיגיטלי"
             autoFocus
@@ -184,7 +183,7 @@ export function Chat() {
           </Button>
         </form>
         <p className="pb-2 text-center text-[11px] text-muted-foreground">
-          המידע כללי בלבד ואינו מחייב — הנוסח הקובע הוא במסמכי הפוליסה.
+          התשובות נוצרות על ידי AI ועלולות לכלול טעויות — מידע חשוב כדאי לוודא מול מסמכי הפוליסה או הסוכן/ת.
         </p>
       </div>
     </div>
