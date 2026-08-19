@@ -133,6 +133,7 @@ export function summarizeHoldings(customer: SurenseCustomer): Record<string, unk
 
   const num = (v: unknown) => (typeof v === "number" ? v : undefined);
   const has = (v: unknown) => v === true || v === "True" || v === "true";
+  const text = (v: unknown) => (typeof v === "string" && v.trim() ? v : undefined);
   const coverage = (exists: unknown, premiumKey?: string) => {
     const c: Record<string, unknown> = { קיים: has(exists) };
     const p = premiumKey ? num(s[premiumKey]) : undefined;
@@ -158,6 +159,12 @@ export function summarizeHoldings(customer: SurenseCustomer): Record<string, unk
       פיצויים: num(s.tzviraPitsuim),
       "סך צבירה כוללת": num(s.tzvira),
     },
+    הפקדות: {
+      "הפקדה חודשית (פנסיה/גמל)": num(s.hafkadot),
+      "קרן השתלמות": num(s.hafkadotHishtalmut),
+      "גמל להשקעה": num(s.hafkadotGemelLeashkaa),
+    },
+    "הנתונים מעודכנים לחודש": text(s.validityMonth) ?? text(customer.lastE9100DataDate),
     "פרמיה חודשית כוללת": num(s.premia),
     "קצבת פרישה חזויה (חודשית)": num(s.kitzbaHazuyaKolelHafkadot),
     "כיסוי חד-פעמי לשארים": num(s.kisuiHadPaamiSheerim),
