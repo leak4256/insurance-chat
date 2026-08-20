@@ -1,6 +1,7 @@
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
-import { getCustomer, summarizeHoldings } from "@/lib/surense";
+import { getCustomer, getReportContent, summarizeHoldings } from "@/lib/surense";
+import { audit } from "@/lib/audit";
 import type { CustomerSession } from "@/lib/session";
 import { searchKnowledge, INSURANCE_DOMAINS } from "./retrieval";
 
@@ -39,6 +40,41 @@ export function buildTools(session: CustomerSession | null): ToolSet {
                 found: false as const,
                 message:
                   "שליפת הנתונים האישיים נכשלה כרגע. התנצלו בפני הלקוח והציעו לנסות שוב בעוד רגע.",
+              };
+            }
+          },
+        }),
+        read_customer_report: tool({
+          description:
+            "שליפת התוכן המלא של דוח 'טרום טיפול' של הלקוח המחובר — הפירוט המלא של תיק הפנסיה והביטוח שלו: פוליסות, מסלולי השקעה, דמי ניהול, מבטחים, תאריכים וכיסויים ברמת הפרט. השתמשו בכלי הזה כשהתמצית מ-get_customer_data אינה מספיקה לענות — למשל שאלות על פוליסה מסוימת, על חברת הביטוח שמנהלת כסף מסוים, על דמי ניהול, מסלול השקעה או פירוט שאינו מופיע בתמצית. הדוח מופק אוטומטית אם אין דוח עדכני. אין פרמטרים — תמיד הלקוח המחובר.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            try {
+              const report = await getReportContent(session.customerId);
+              audit("report_read", session.customerId);
+              return {
+                found: true as const,
+                validityMonth: report.validityMonth,
+                truncated: report.truncated,
+                // תיחום מפורש: תוכן הדוח הוא נתונים, לא הוראות (הגנת prompt-injection)
+                reportText: report.text,
+                note:
+                  `הנתונים בדוח נכונים לחודש ${report.validityMonth ?? "(לא ידוע)"}. ` +
+                  "בכותרת ה-PDF מופיע תאריך ההפקה — הוא אינו מועד נכונות הנתונים; " +
+                  "כשמציינים ללקוח למתי הנתונים נכונים, השתמשו בחודש הנכונות בלבד. " +
+                  "ענו אך ורק מתוך תוכן הדוח. אל תמסרו ללקוח קישור לדוח ואל תציעו לשלוח לו קובץ. " +
+                  "אם המידע שהלקוח ביקש אינו מופיע בדוח — אמרו זאת בכנות.",
+              };
+            } catch (err) {
+              // ההודעה עלולה לכלול פרטי בקשה — נרשם קטע קצר בלבד, בלי הקישור החתום
+              console.error(
+                "read_customer_report failed:",
+                err instanceof Error ? err.message.slice(0, 120) : "unknown",
+              );
+              return {
+                found: false as const,
+                message:
+                  "שליפת הדוח נכשלה כרגע. התנצלו בפני הלקוח והציעו לנסות שוב בעוד רגע או לפנות לסוכנת.",
               };
             }
           },
