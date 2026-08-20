@@ -12,6 +12,7 @@ export type AuditEvent =
   | "otp_failed"
   | "otp_locked"
   | "logout"
+  | "report_read"
   | "admin_login"
   | "admin_login_failed";
 

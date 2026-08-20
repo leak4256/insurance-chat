@@ -68,6 +68,15 @@ export const config = {
     makeWebhookSecret: process.env.MAKE_WEBHOOK_SECRET ?? "",
     /** תקרת המתנה לתשובת התרחיש (Make עשוי להיות איטי מ-API ישיר) */
     timeoutMs: Number(process.env.MAKE_TIMEOUT_MS ?? 30_000),
+    /**
+     * גיל מקסימלי (בימים) של דוח קיים שעדיין נחשב טרי. מעבר לכך מופק דוח חדש
+     * במקום למחזר — כדי לא להציג ללקוח נתוני מסלקה מיושנים.
+     */
+    reportMaxAgeDays: Number(process.env.SURENSE_REPORT_MAX_AGE_DAYS ?? 30),
+    /** תקרת אורך לטקסט שחולץ מהדוח לפני שהוא נכנס להקשר המודל */
+    reportMaxChars: Number(process.env.SURENSE_REPORT_MAX_CHARS ?? 40_000),
+    /** תוקף המטמון בזיכרון לתוכן דוח (הפקה+הורדה+פענוח יקרים) */
+    reportCacheTtlMs: Number(process.env.SURENSE_REPORT_CACHE_TTL_MS ?? 15 * 60_000),
   },
 
   /** כתובת האפליקציה */
