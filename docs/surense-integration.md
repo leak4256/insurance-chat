@@ -85,7 +85,9 @@
 | Endpoint | תוצאה | מסקנה |
 |---|---|---|
 | `GET /products/fields` | 405 | — |
-| `GET /customers/{id}/products` | **405 Method Not Allowed** | **הנתיב קיים אך לא מתועד!** לא נוסה: POST עם `{"startRow":0,"endRow":50}` |
+| `GET /customers/{id}/products` | **405 Method Not Allowed** | **הנתיב קיים אך לא מתועד!** |
+| `POST /customers/{id}/products` (02.08.2026) | 400 `Request body is missing or could not be read` | שגיאת Spring: הגוף לא הגיע. כנראה Body type לא הוגדר Raw+JSON. **לא נוסה שוב עם גוף תקין** |
+| `POST /customers/{id}/products/search` | 405 | — |
 | `/customer-products/search`, `/customer-products/fields`, `/gridviews/customer-products` | 404 | לא לנסות שוב |
 | `POST /products/search` + filter על `customerId`/`customer` | 500 | השדה לא קיים על הישות |
 | `POST /swiftness/e9100/download` | 400 המשתמש אינו מורשה | **אסור בכל מקרה — ראו §6** |
@@ -186,6 +188,15 @@
 
 **לא נוסה כשהסשן נגמר:** `Create report` + טרום טיפול על לאה עם `month=2026-06` (ה-`lastE9100DataDate` שלה), ועם month ריק.
 
+### ✅ דוח "פרודוקציה" (סוג דוח 2) — עובד (22.09.2026)
+הרצה ידנית על יהודה (`79b095c1…`, `tromStats` ריק, `productiaStats` עם ביטוח חיים למשכנתא): `success:true` + `reportId`. ה-PDF (3.4K תווים) מכיל **"מגדל ביטוח", "ביטוח חיים משכנתא" ומספר החשבון/פוליסה** — כלומר הפירוט ברמת פוליסה שחסר ב-`productiaStats`. `search_reports` מחזיר אותו עם `reportType.code = 2`, `validityMonth = "2026-07"`.
+
+שני תנאים להצלחה, שנמצאו באותה הרצה (לא מבודדים):
+1. **שדות "דוח ישן" חייבים להיות Empty, לא No.** עם No חזר "לא נמצאו מוצרים ללקוח ולכן לא הופק דוח".
+2. **"חודש נכונות המידע" הוא פר-לקוח** (עזרת השדה: "ניתן להשיג דרך Get Customer Portfolio History"). עבד עם `2026-07` = `productiaStats.statsValidityMonth`; `2026-04` נכשל (אך יחד עם No). `lastProductiaMonth` (`2026-08`) לא נוסה. הקוד שולח את החודש מרשומת הלקוח (`reportRequestFor` ב-`surense.ts`) — בלי `portfolio`.
+
+**בקוד:** `REPORT_TYPES` {1 טרום טיפול, 2 פרודוקציה}; הבחירה לפי המקור שיש ללקוח (טרום טיפול אם יש נתוני מסלקה, אחרת פרודוקציה). `create_report` נשלח עם `reportType` ו-`month` — **הראוטר ב-Make חייב למפות אותם מגוף ה-webhook** (עד אז הסוג קבוע 1 בתרחיש).
+
 ---
 
 ## 9. גילוי מה-UI (DevTools על app.surense.com)
@@ -202,7 +213,8 @@
 
 ## 10. לידים פתוחים (לפי סדר עדיפות)
 
-1. **POST ל-`/customers/{customerId}/products`** עם `{"startRow":0,"endRow":50}` — ה-405 מוכיח שהנתיב קיים. הצעד הבא הכי ישיר.
+1. ~~דוח "פרודוקציה" פר-לקוח~~ — **עובד, ר' §8.** נותר: מיפוי `reportType` + `month` מגוף ה-webhook במסלול `create_report` ב-Make, (נעשה 22.09 — מיפוי ידני `{{5.reportType}}` / `{{5.month}}`). ⚠️ `reportType` חייב להגיע כ**מספר** ב-JSON: המחרוזת "2" נכשלת ב-400 "Request body is missing or could not be read" (אומת: "2" נכשל, 2 הצליח). שדות "דוח ישן": Make מאפס Empty ל-No בכל פתיחה של המודול — הפתרון הקבוע הוא מתג Map דלוק עם שדה ריק. טרום טיפול נשלח **בלי** חודש, כמו שעבד מאז 19.08; לא נבדק עם חודש.
+   ~~מסך המוצרים~~ (22.09.2026) — **מבוי סתום סופי**: הבקשה היא `GET app.surense.com/api/products` **בלי query ובלי body**; זהות הלקוח עוברת בכותרת/עוגייה של סשן הדפדפן. זה ה-API הפנימי של הווב (ר' §9), לא נגיש מהחיבור של Make. לא לנסות שוב.
 2. **הר הביטוח** — רגיסטר **שונה מהמסלקה**, ולכן מחוץ לאיסור של רחלי (לאמת איתה בכל זאת). ל-Make יש מודול `Download har bituach` מדרגה ראשונה, ועל הלקוח יש `hbProxySignDate`/`hbProxyInviteDate`/`hbDataDate`. צפי: פוליסות ביטוח בלבד (חיים/בריאות/סיעוד/כללי), כנראה לא פנסיה/גמל/השתלמות.
 3. `GET /productia/fields` — ניחוש זול; הקידומת `productiaStats.*` והמילה של רחלי "פרודוקציה" מרמזות על ישות `productia`. המוסכמה `GET /{entity}/fields` מאומתת על `customers`.
 4. `productCode`/`id` מ-`/products/search` הם מפתחות הצירוף הסבירים לתרגום קודים מספריים לשמות קרנות קריאים — בשילוב מילון `GET /products/types`.

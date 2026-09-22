@@ -36,7 +36,7 @@ type MakeAction =
   | "create_report"
   | "report_url";
 
-async function callMake<T>(action: MakeAction, params: Record<string, string>): Promise<T> {
+async function callMake<T>(action: MakeAction, params: Record<string, string | number>): Promise<T> {
   if (!isSurenseConfigured()) {
     throw new Error("חיבור Make אינו מוגדר — חסרים MAKE_WEBHOOK_URL / MAKE_WEBHOOK_SECRET");
   }
@@ -109,6 +109,11 @@ export interface SurenseCustomer {
   lastName?: string;
   /** סיכום המסלקה הפנסיונית — קיים בתשובת get_customer (לא ב-search) */
   tromStats?: Record<string, unknown>;
+  /**
+   * סיכום הפרודוקציה (נתוני חברות הביטוח לסוכנות) — אותם שדות כמו tromStats עם
+   * קידומת `stats`. מכיל מוצרים שאינם במסלקה, למשל ביטוח חיים למשכנתא (אומת 17.09.2026)
+   */
+  productiaStats?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -148,61 +153,128 @@ export async function getCustomer(customerId: string): Promise<SurenseCustomer> 
   return customer;
 }
 
+/** כיסוי ← [שדה הקיום, שדה הפרמיה (אם ידוע)] — שמות השדות של tromStats */
+const COVERAGES: [label: string, existsKey: string, premiumKey?: string][] = [
+  ["ביטוח חיים", "kayamHaim", "premiaHaim"],
+  ["ביטוח חיים למשכנתא", "kayamHaimMashkanta", "premiaHaimMashkanta"],
+  ["ביטוח בריאות", "kayamBriut"],
+  ["מחלות קשות", "kayamMahalotKashot", "premiaMahalotKashot"],
+  ["תאונות אישיות", "kayamTeunotIshiot"],
+  ["ביטוח סיעודי", "kayamSiudi"],
+  ["נכות מתאונה", "kayamNehutMiteuna"],
+  ["אבדן כושר עבודה", "kayamAka"],
+];
+
+const ACCUMULATIONS: [label: string, key: string][] = [
+  ["פנסיה", "tzviraPensia"],
+  ["קרן השתלמות", "tzviraHishtalmut"],
+  ["גמל", "tzviraGemel"],
+  ["גמל להשקעה", "tzviraGemelLeashkaa"],
+  ["פיצויים", "tzviraPitsuim"],
+  ["סך צבירה כוללת", "tzvira"],
+];
+
+const DEPOSITS: [label: string, key: string][] = [
+  ["הפקדה חודשית (פנסיה/גמל)", "hafkadot"],
+  ["קרן השתלמות", "hafkadotHishtalmut"],
+  ["גמל להשקעה", "hafkadotGemelLeashkaa"],
+];
+
+const OTHER_AMOUNTS: [label: string, key: string][] = [
+  ["פרמיה חודשית כוללת", "premia"],
+  ["קצבת פרישה חזויה (חודשית)", "kitzbaHazuyaKolelHafkadot"],
+  ["כיסוי חד-פעמי לשארים", "kisuiHadPaamiSheerim"],
+  ["דמי ניהול חזויים (חודשי)", "dmeiNihulHazuim"],
+];
+
 /**
- * תמצית האחזקות של הלקוח (אילו ביטוחים/פנסיה יש לו, פרמיות וצבירות) —
- * נשלפת מ-`tromStats` שבתוך תשובת get_customer, שהוא סיכום המסלקה הפנסיונית.
- *
- * ⚠️ שמות השדות של שורנס מתועדים חלקית והתוויות בעברית טעונות אימות מול
- * הסוכנת. מוחזר תת-קבוצה מצומצמת בלבד (מזעור נתונים) — לא כל האובייקט.
+ * תמצית מקור נתונים אחד. נכללים **רק** כיסויים קיימים וסכומים שאינם אפס:
+ * "לא קיים" / 0 ברשומה משמעו לרוב "המקור לא דיווח", והמודל נוטה להציג אותם
+ * ללקוח כעובדה ("יש לך 0 ש"ח בפנסיה"). מקור בלי שום נתון → null.
  */
-export function summarizeHoldings(customer: SurenseCustomer): Record<string, unknown> | null {
-  const s = customer.tromStats;
+function summarizeStats(
+  s: Record<string, unknown> | undefined,
+  field: (key: string) => string,
+  fallbackMonth: unknown,
+): Record<string, unknown> | null {
   if (!s || typeof s !== "object") return null;
 
-  const num = (v: unknown) => (typeof v === "number" ? v : undefined);
-  const has = (v: unknown) => v === true || v === "True" || v === "true";
-  const text = (v: unknown) => (typeof v === "string" && v.trim() ? v : undefined);
-  const coverage = (exists: unknown, premiumKey?: string) => {
-    const c: Record<string, unknown> = { קיים: has(exists) };
-    const p = premiumKey ? num(s[premiumKey]) : undefined;
-    if (has(exists) && p !== undefined) c["פרמיה חודשית"] = p;
-    return c;
+  const num = (key: string) => {
+    const v = s[field(key)];
+    return typeof v === "number" && v !== 0 ? v : undefined;
   };
+  const has = (key: string) => {
+    const v = s[field(key)];
+    return v === true || v === "True" || v === "true";
+  };
+  const text = (v: unknown) => (typeof v === "string" && v.trim() ? v : undefined);
+  const amounts = (entries: [string, string][]) =>
+    Object.fromEntries(
+      entries.flatMap(([label, key]) => (num(key) === undefined ? [] : [[label, num(key)]])),
+    );
+
+  const coverages = Object.fromEntries(
+    COVERAGES.filter(([, existsKey]) => has(existsKey)).map(([label, , premiumKey]) => {
+      const premium = premiumKey ? num(premiumKey) : undefined;
+      return [label, premium === undefined ? "קיים" : { "פרמיה חודשית": premium }];
+    }),
+  );
+  const flags = [
+    ...(has("kayamHalvaot") ? ["קיימות הלוואות"] : []),
+    ...(has("kayamIkulimShiabudim") ? ["קיימים עיקולים/שעבודים"] : []),
+  ];
+
+  const groups: Record<string, unknown> = {
+    "כיסויים קיימים": coverages,
+    צבירות: amounts(ACCUMULATIONS),
+    הפקדות: amounts(DEPOSITS),
+    ...amounts(OTHER_AMOUNTS),
+  };
+  const content = Object.fromEntries(
+    Object.entries(groups).filter(
+      ([, v]) => !(v && typeof v === "object" && Object.keys(v).length === 0),
+    ),
+  );
+  if (Object.keys(content).length === 0 && flags.length === 0) return null;
 
   return {
-    כיסויים: {
-      "ביטוח חיים": coverage(s.kayamHaim, "premiaHaim"),
-      "ביטוח חיים למשכנתא": coverage(s.kayamHaimMashkanta),
-      "ביטוח בריאות": coverage(s.kayamBriut),
-      "מחלות קשות": coverage(s.kayamMahalotKashot, "premiaMahalotKashot"),
-      "תאונות אישיות": coverage(s.kayamTeunotIshiot),
-      "ביטוח סיעודי": coverage(s.kayamSiudi),
-      "נכות מתאונה": coverage(s.kayamNehutMiteuna),
-      "אבדן כושר עבודה": coverage(s.kayamAka),
-    },
-    צבירות: {
-      פנסיה: num(s.tzviraPensia),
-      "קרן השתלמות": num(s.tzviraHishtalmut),
-      גמל: num(s.tzviraGemel),
-      פיצויים: num(s.tzviraPitsuim),
-      "סך צבירה כוללת": num(s.tzvira),
-    },
-    הפקדות: {
-      "הפקדה חודשית (פנסיה/גמל)": num(s.hafkadot),
-      "קרן השתלמות": num(s.hafkadotHishtalmut),
-      "גמל להשקעה": num(s.hafkadotGemelLeashkaa),
-    },
-    "הנתונים מעודכנים לחודש": text(s.validityMonth) ?? text(customer.lastE9100DataDate),
-    "פרמיה חודשית כוללת": num(s.premia),
-    "קצבת פרישה חזויה (חודשית)": num(s.kitzbaHazuyaKolelHafkadot),
-    "כיסוי חד-פעמי לשארים": num(s.kisuiHadPaamiSheerim),
-    "דמי ניהול חזויים (חודשי)": num(s.dmeiNihulHazuim),
-    "קיימות הלוואות": has(s.kayamHalvaot),
-    "קיימים עיקולים/שעבודים": has(s.kayamIkulimShiabudim),
+    ...content,
+    ...(flags.length ? { "הערות נוספות": flags } : {}),
+    "הנתונים מעודכנים לחודש": text(s[field("validityMonth")]) ?? text(fallbackMonth),
   };
 }
 
-// ---------- דוח "טרום טיפול" ללקוח (אומת מול Surense 19.08.2026) ----------
+const NO_SOURCE_DATA = "אין נתונים במקור הזה";
+
+/**
+ * תמצית האחזקות של הלקוח (אילו ביטוחים/פנסיה יש לו, פרמיות וצבירות) מתוך
+ * תשובת get_customer, משני מקורות נפרדים:
+ * - `tromStats` — המסלקה הפנסיונית.
+ * - `productiaStats` — הפרודוקציה (נתוני חברות הביטוח לסוכנות). אותם שדות
+ *   בקידומת `stats`. כאן מופיעים מוצרים שאינם במסלקה, כמו ביטוח חיים למשכנתא.
+ * לא מאחדים את המקורות: אותו מוצר עשוי להופיע בשניהם, וחיבור היה סופר פעמיים.
+ *
+ * ⚠️ שמות השדות של שורנס מתועדים חלקית והתוויות בעברית טעונות אימות מול
+ * הסוכנת. מוחזר תת-קבוצה מצומצמת בלבד (מזעור נתונים) — לא כל האובייקט.
+ * null = אין ברשומה אף אחד משני אובייקטי הסיכום (תקלה, לא "אין מוצרים").
+ */
+export function summarizeHoldings(customer: SurenseCustomer): Record<string, unknown> | null {
+  if (!customer.tromStats && !customer.productiaStats) return null;
+
+  const trom = summarizeStats(customer.tromStats, (k) => k, customer.lastE9100DataDate);
+  const productia = summarizeStats(
+    customer.productiaStats,
+    (k) => `stats${k[0].toUpperCase()}${k.slice(1)}`,
+    customer.lastProductiaMonth,
+  );
+
+  return {
+    "מסלקה פנסיונית": trom ?? NO_SOURCE_DATA,
+    "פרודוקציה (נתוני חברות הביטוח לסוכנות)": productia ?? NO_SOURCE_DATA,
+  };
+}
+
+// ---------- דוח פר-לקוח (טרום טיפול אומת 19.08.2026, פרודוקציה 22.09.2026) ----------
 
 /**
  * שלוש הפעולות הנדרשות בראוטר ה-Make. שתיים מהן אינן חושפות מודול ייעודי
@@ -211,8 +283,9 @@ export function summarizeHoldings(customer: SurenseCustomer): Record<string, unk
  *
  *   search_reports  POST /customers/{customerId}/reports/search   ← Make an API Call
  *                   body: {"startRow":0,"endRow":50,"sorts":[{"field":"createdDate","dir":"desc"}]}
- *   create_report   מודול "Create Report" (סוג דוח: טרום טיפול קבוע בתרחיש;
- *                   שדות "דוח ישן" חייבים להיות Empty — אחרת 500)
+ *   create_report   מודול "Create Report". מקבל מגוף ה-webhook `reportType` (1/2, ר'
+ *                   REPORT_TYPES) ו-`month` (YYYY-MM, חודש נכונות המידע; נשלח רק כשידוע).
+ *                   שדות "דוח ישן" חייבים להיות Empty (לא No) — אחרת 500 או "לא נמצאו מוצרים".
  *   report_url      POST /customers/{customerId}/reports/{reportId}/url  ← Make an API Call
  *
  * ⚠️ scope: היצירה דורשת customers:update והקריאה customers:read — שונים זה מזה.
@@ -223,8 +296,50 @@ export function summarizeHoldings(customer: SurenseCustomer): Record<string, unk
  * ללוגים ואינו מוחזר למודל או ללקוח. הצ'אט עונה מתוך תוכן הדוח, לא מקשר אליו.
  */
 
-/** קוד סוג הדוח "טרום טיפול" — היחיד שמופק מהצ'אט */
-const REPORT_TYPE_PRE_TREATMENT = 1;
+/** סוגי הדוח שהצ'אט מפיק — כל אחד מכסה מקור נתונים אחר של הלקוח */
+export const REPORT_TYPES = {
+  /** "טרום טיפול" — המסלקה הפנסיונית (`tromStats`) */
+  preTreatment: 1,
+  /** "פרודוקציה" — נתוני חברות הביטוח לסוכנות (`productiaStats`) */
+  production: 2,
+} as const;
+type ReportType = (typeof REPORT_TYPES)[keyof typeof REPORT_TYPES];
+
+const REPORT_SOURCE_LABEL: Record<ReportType, string> = {
+  [REPORT_TYPES.preTreatment]: "מסלקה פנסיונית",
+  [REPORT_TYPES.production]: "פרודוקציה (נתוני חברות הביטוח לסוכנות)",
+};
+
+/** YYYY-MM מתוך מחרוזת חודש או תאריך (למשל "2026-06-30T…" → "2026-06") */
+function toMonth(v: unknown): string | undefined {
+  return typeof v === "string" ? /^\d{4}-\d{2}/.exec(v)?.[0] : undefined;
+}
+
+/**
+ * איזה דוח להפיק ללקוח: טרום טיפול כשיש לו נתוני מסלקה (ההתנהגות המקורית),
+ * ופרודוקציה כשאין — כמו לקוח שכל מה שיש לו הוא ביטוח חיים למשכנתא.
+ *
+ * החודש הוא "חודש נכונות המידע" של המקור, והוא שונה מלקוח ללקוח: עם חודש שבו
+ * אין למקור נתונים Surense עונה "לא נמצאו מוצרים ללקוח" (אומת 22.09.2026).
+ * הוא נלקח מרשומת הלקוח עצמה, בלי קריאה נוספת ל-portfolio.
+ * טרום טיפול נשלח בלי חודש — כך הוא הופק בהצלחה מאז 19.08, ולא נבדק עם חודש.
+ */
+function reportRequestFor(customer: SurenseCustomer): { type: ReportType; month?: string } {
+  if (summarizeStats(customer.tromStats, (k) => k, undefined) !== null) {
+    return { type: REPORT_TYPES.preTreatment };
+  }
+  return { type: REPORT_TYPES.production, month: sourceMonth(customer, REPORT_TYPES.production) };
+}
+
+/** חודש נכונות המידע של מקור הנתונים שהדוח מכסה, מתוך רשומת הלקוח */
+function sourceMonth(customer: SurenseCustomer, type: ReportType): string | undefined {
+  if (type === REPORT_TYPES.preTreatment) {
+    return toMonth(customer.tromStats?.validityMonth) ?? toMonth(customer.lastE9100DataDate);
+  }
+  return (
+    toMonth(customer.productiaStats?.statsValidityMonth) ?? toMonth(customer.lastProductiaMonth)
+  );
+}
 
 /**
  * שדות הדוח כפי ששורנס מחזיר בפועל. שימו לב שהמזהה מגיע בשם שונה לפי הפעולה:
@@ -251,6 +366,8 @@ export interface ReportContent {
   /** חודש נכונות המידע (YYYY-MM) — חשוב לציין ללקוח למה הנתונים נכונים */
   validityMonth?: string;
   createdDate?: string;
+  /** מקור הנתונים שהדוח מכסה (תווית בעברית, ר' REPORT_SOURCE_LABEL) */
+  source: string;
   /** האם נעשה שימוש בדוח קיים (true) או שהופק חדש (false) */
   reused: boolean;
   /** הטקסט נחתך בגלל תקרת האורך */
@@ -267,23 +384,27 @@ function reportAgeDays(report: SurenseReport): number {
   return Number.isNaN(created) ? Number.POSITIVE_INFINITY : (Date.now() - created) / 86_400_000;
 }
 
+function reportTypeOf(report: SurenseReport): ReportType | undefined {
+  const code = report.reportType?.code;
+  return code === REPORT_TYPES.preTreatment || code === REPORT_TYPES.production ? code : undefined;
+}
+
 /**
- * הדוח הטרי ביותר של הלקוח שעדיין בתוקף עניני. אין הסתמכות על מיון בצד השרת —
- * התשובה של search אינה מתועדת, ולכן ממיינים כאן.
+ * הדוחות של הלקוח שעדיין בתוקף עניני, מהסוגים שהצ'אט מכיר, הטרי ראשון. אין
+ * הסתמכות על מיון בצד השרת — התשובה של search אינה מתועדת, ולכן ממיינים כאן.
  */
-async function findFreshReport(customerId: string): Promise<SurenseReport | null> {
+async function findFreshReports(customerId: string): Promise<SurenseReport[]> {
   const payload = await callMake<unknown>("search_reports", { customerId });
   const fresh = asArray<SurenseReport>(payload).filter(
     (r) =>
       reportIdOf(r) &&
       r.documentId && // בלי קובץ אין מה להציג
-      r.reportType?.code === REPORT_TYPE_PRE_TREATMENT &&
+      reportTypeOf(r) !== undefined &&
       // הגנה לעומק: גם אם הסינון בתרחיש רופף, לא מחזירים דוח של לקוח אחר
       (!r.customerId || r.customerId === customerId) &&
       reportAgeDays(r) <= config.surense.reportMaxAgeDays,
   );
-  fresh.sort((a, b) => reportAgeDays(a) - reportAgeDays(b));
-  return fresh[0] ?? null;
+  return fresh.sort((a, b) => reportAgeDays(a) - reportAgeDays(b));
 }
 
 /**
@@ -310,10 +431,12 @@ async function downloadReportText(url: string): Promise<string> {
 const reportCache = new Map<string, { at: number; content: ReportContent }>();
 
 /**
- * תוכן דוח "טרום טיפול" של הלקוח, כטקסט, לשימוש המודל כמקור לתשובה.
+ * תוכן הדוח של הלקוח, כטקסט, לשימוש המודל כמקור לתשובה.
  *
  * הזרימה: חיפוש דוח קיים וטרי → אם אין, הפקת דוח חדש → קישור חתום → הורדת
  * ה-PDF → חילוץ טקסט. מיחזור דוח קיים נועד לא לצבור דוחות מיותרים בתיק הלקוח.
+ * סוג הדוח נקבע לפי מקור הנתונים של הלקוח (ר' reportRequestFor); רשומת הלקוח
+ * נשלפת רק כשצריך להכריע — דוח טרי יחיד מתקבל כמו שהוא, בלי קריאה נוספת ל-Make.
  *
  * ה-customerId מגיע תמיד מה-session המאומת בצד השרת, לעולם לא מקלט המשתמש.
  */
@@ -321,16 +444,42 @@ export async function getReportContent(customerId: string): Promise<ReportConten
   const cached = reportCache.get(customerId);
   if (cached && Date.now() - cached.at < config.surense.reportCacheTtlMs) return cached.content;
 
-  let report = await findFreshReport(customerId);
-  const reused = !!report;
+  const fresh = await findFreshReports(customerId);
+  const freshTypes = new Set(fresh.map(reportTypeOf));
 
-  if (!report) {
-    const created = asObject<SurenseReport>(await callMake<unknown>("create_report", { customerId }));
-    if (!created || !reportIdOf(created)) {
-      throw new Error("Make create_report החזיר תשובה ללא מזהה דוח (id/reportId)");
+  let report: SurenseReport | undefined;
+  let type: ReportType;
+  let customer: SurenseCustomer | undefined;
+  if (freshTypes.size === 1) {
+    report = fresh[0];
+    type = reportTypeOf(report)!;
+  } else {
+    customer = await getCustomer(customerId);
+    const wanted = reportRequestFor(customer);
+    type = wanted.type;
+    report = fresh.find((r) => reportTypeOf(r) === type);
+    if (!report) {
+      const created = asObject<SurenseReport>(
+        await callMake<unknown>("create_report", {
+          customerId,
+          // מספר, לא מחרוזת: Surense דוחה "2" ב-400 "Request body is missing or could not be read"
+          reportType: type,
+          ...(wanted.month ? { month: wanted.month } : {}),
+        }),
+      );
+      if (!created || !reportIdOf(created)) {
+        throw new Error("Make create_report החזיר תשובה ללא מזהה דוח (id/reportId)");
+      }
+      report = created;
     }
-    report = created;
   }
+  const reused = fresh.includes(report);
+
+  // דוח שהופק בלי חודש (טרום טיפול) חוזר בלי validityMonth — משלימים מרשומת
+  // הלקוח, כדי שהמודל יוכל לציין ללקוח למתי הנתונים נכונים
+  const validityMonth =
+    toMonth(report.validityMonth) ??
+    sourceMonth(customer ?? (await getCustomer(customerId)), type);
 
   const link = asObject<{ url?: string }>(
     await callMake<unknown>("report_url", { customerId, reportId: reportIdOf(report)! }),
@@ -344,8 +493,9 @@ export async function getReportContent(customerId: string): Promise<ReportConten
   const truncated = full.length > config.surense.reportMaxChars;
   const content: ReportContent = {
     text: truncated ? full.slice(0, config.surense.reportMaxChars) : full,
-    validityMonth: report.validityMonth,
+    validityMonth,
     createdDate: report.createdDate,
+    source: REPORT_SOURCE_LABEL[type],
     reused,
     truncated,
   };
