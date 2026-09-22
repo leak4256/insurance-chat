@@ -30,7 +30,7 @@ export function MessageBubble({ message }: { message: UIMessage }) {
         className={cn(
           "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm",
           isUser
-            ? "rounded-tl-md bg-primary text-primary-foreground"
+            ? "brand-fill rounded-tl-md bg-primary text-primary-foreground"
             : "rounded-tr-md border bg-card text-card-foreground",
         )}
       >

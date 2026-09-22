@@ -47,3 +47,6 @@ knowledge/manifest.json
 # RAG eval outputs + real golden set
 scripts/eval/results/
 scripts/eval/golden-set.jsonl
+
+# design sources from clients (contain personal contact details)
+/design/

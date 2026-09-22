@@ -67,6 +67,7 @@ Error [AI_RetryError]: unable to get local issuer certificate
 | `ADMIN_PASSWORD` | ✅ נוסף |
 | `RESEND_API_KEY` (+`RESEND_FROM`) | ❌ **חסר** — בלעדיו ה-OTP מודפס ללוג השרת (dev בלבד; **בפרודקשן זורק שגיאה**) |
 | `APP_URL` | נדרש בפרודקשן |
+| `NEXT_PUBLIC_BRAND` | ערכת מיתוג: `haor` (רחלי טיירי) או ריק → ברירת מחדל כחולה. צבעים ב-`globals.css`, שם ולוגו ב-`src/lib/brand.ts` (לוגו: `public/brand/haor/logo.png` — כבוי כרגע, מוצג אייקון). נקרא בזמן build — אחרי שינוי צריך להפעיל מחדש |
 | Supabase / Voyage / OpenAI / Google | ✅ מוגדרים |
 
 **באג שתוקן:** ל-`SUPABASE_URL` הייתה סיומת `/rest/v1/` → "Invalid path" מ-`match_chunks`. חייב להיות **origin בלבד**.
