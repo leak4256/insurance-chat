@@ -325,14 +325,20 @@ function toMonth(v: unknown): string | undefined {
  * טרום טיפול נשלח בלי חודש — כך הוא הופק בהצלחה מאז 19.08, ולא נבדק עם חודש.
  */
 function reportRequestFor(customer: SurenseCustomer): { type: ReportType; month?: string } {
-  const p = customer.productiaStats;
   if (summarizeStats(customer.tromStats, (k) => k, undefined) !== null) {
     return { type: REPORT_TYPES.preTreatment };
   }
-  return {
-    type: REPORT_TYPES.production,
-    month: toMonth(p?.statsValidityMonth) ?? toMonth(customer.lastProductiaMonth),
-  };
+  return { type: REPORT_TYPES.production, month: sourceMonth(customer, REPORT_TYPES.production) };
+}
+
+/** חודש נכונות המידע של מקור הנתונים שהדוח מכסה, מתוך רשומת הלקוח */
+function sourceMonth(customer: SurenseCustomer, type: ReportType): string | undefined {
+  if (type === REPORT_TYPES.preTreatment) {
+    return toMonth(customer.tromStats?.validityMonth) ?? toMonth(customer.lastE9100DataDate);
+  }
+  return (
+    toMonth(customer.productiaStats?.statsValidityMonth) ?? toMonth(customer.lastProductiaMonth)
+  );
 }
 
 /**
@@ -443,11 +449,13 @@ export async function getReportContent(customerId: string): Promise<ReportConten
 
   let report: SurenseReport | undefined;
   let type: ReportType;
+  let customer: SurenseCustomer | undefined;
   if (freshTypes.size === 1) {
     report = fresh[0];
     type = reportTypeOf(report)!;
   } else {
-    const wanted = reportRequestFor(await getCustomer(customerId));
+    customer = await getCustomer(customerId);
+    const wanted = reportRequestFor(customer);
     type = wanted.type;
     report = fresh.find((r) => reportTypeOf(r) === type);
     if (!report) {
@@ -462,10 +470,16 @@ export async function getReportContent(customerId: string): Promise<ReportConten
       if (!created || !reportIdOf(created)) {
         throw new Error("Make create_report החזיר תשובה ללא מזהה דוח (id/reportId)");
       }
-      report = { ...created, validityMonth: created.validityMonth ?? wanted.month };
+      report = created;
     }
   }
   const reused = fresh.includes(report);
+
+  // דוח שהופק בלי חודש (טרום טיפול) חוזר בלי validityMonth — משלימים מרשומת
+  // הלקוח, כדי שהמודל יוכל לציין ללקוח למתי הנתונים נכונים
+  const validityMonth =
+    toMonth(report.validityMonth) ??
+    sourceMonth(customer ?? (await getCustomer(customerId)), type);
 
   const link = asObject<{ url?: string }>(
     await callMake<unknown>("report_url", { customerId, reportId: reportIdOf(report)! }),
@@ -479,7 +493,7 @@ export async function getReportContent(customerId: string): Promise<ReportConten
   const truncated = full.length > config.surense.reportMaxChars;
   const content: ReportContent = {
     text: truncated ? full.slice(0, config.surense.reportMaxChars) : full,
-    validityMonth: report.validityMonth,
+    validityMonth,
     createdDate: report.createdDate,
     source: REPORT_SOURCE_LABEL[type],
     reused,
