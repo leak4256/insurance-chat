@@ -6,6 +6,7 @@ import type { UIMessage } from "ai";
 import { SendHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { brand } from "@/lib/brand";
 import { ChatHeader, type AuthState } from "./chat-header";
 import { LoginCard } from "./login-card";
 import { MessageBubble, TypingIndicator } from "./message-bubble";
@@ -116,7 +117,7 @@ export function Chat() {
             <div className="my-10 flex flex-col items-center gap-4 text-center">
               <h2 className="text-xl font-semibold">שלום! 👋</h2>
               <p className="max-w-md text-sm text-muted-foreground">
-                אני העוזר הדיגיטלי של הסוכנות. תוכל לשאול אותי כל שאלה על ביטוח ופיננסים ועל המוצרים שלך
+                אני {brand.name}. תוכל לשאול אותי כל שאלה על ביטוח ופיננסים ועל המוצרים שלך
               </p>
               <div className="flex flex-wrap justify-center gap-2">
                 {SUGGESTIONS.map((q) => (

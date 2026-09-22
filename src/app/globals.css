@@ -23,6 +23,52 @@
   --radius: 0.75rem;
 }
 
+/* ערכת "האור" (רחלי טיירי) — נבחרת ב-NEXT_PUBLIC_BRAND=haor.
+   מקור: design/שפה עיצובית סופית + מוצרים פרזנטציה.pdf, עמ׳ 4 (צבעוניות):
+   Deep Horizon #38525e · Coral Glow #fc8a73 · Sunrise Peach #ffd4a3 · Mist Blue #dfeaed ·
+   Soft White #f7fdff · Gradient Sunrise #f9f37d → #ffb08d. טקסט כהה = צבע הלוגו #1e353a.
+   משטחים בגווני אפרסק חמים; הכחול נשאר לטקסט, לכותרת הכהה ולכפתורים — לא לרקעים. */
+[data-brand="haor"] {
+  --background: oklch(0.985 0.011 72);
+  --foreground: oklch(0.312 0.030 213);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.312 0.030 213);
+  --primary: oklch(0.423 0.037 228);
+  --primary-foreground: oklch(0.990 0.007 220);
+  --secondary: oklch(0.895 0.080 70);
+  --secondary-foreground: oklch(0.312 0.030 213);
+  --muted: oklch(0.965 0.024 68);
+  --muted-foreground: oklch(0.528 0.029 226);
+  --accent: oklch(0.895 0.080 70);
+  --accent-foreground: oklch(0.312 0.030 213);
+  --border: oklch(0.924 0.028 67);
+  --input: oklch(0.875 0.034 66);
+  --ring: oklch(0.753 0.143 33);
+  --radius: 1.25rem;
+  --brand-gradient: linear-gradient(120deg, oklch(0.945 0.140 106) 0%, oklch(0.825 0.104 45) 100%);
+  --brand-fill-foreground: oklch(0.312 0.030 213);
+}
+
+/* "האור": כותרת בצבע הלוגו, כמו בכרטיס הביקור ובחתימה. משתנים מקומיים — רכיבי הכותרת מתאימים את עצמם */
+[data-brand="haor"] .brand-header {
+  --card: oklch(0.312 0.030 213);
+  --foreground: oklch(0.990 0.007 220);
+  --muted-foreground: oklch(0.820 0.017 221);
+  --primary: oklch(0.895 0.080 70);
+  --border: oklch(0.382 0.033 221);
+  --input: oklch(0.528 0.029 226);
+  color: var(--foreground);
+  border-color: transparent;
+}
+
+/* "האור": אור חלון רך בראש הרקע (השפה הצילומית והפטרנים ב-PDF) */
+[data-brand="haor"] body,
+[data-brand="haor"] main.bg-background {
+  background-image: radial-gradient(ellipse 90% 45% at 100% 0%, oklch(0.945 0.140 106 / 0.18), transparent 70%),
+    radial-gradient(ellipse 70% 40% at 0% 0%, oklch(0.825 0.104 45 / 0.16), transparent 70%);
+  background-attachment: fixed;
+}
+
 .dark {
   --background: oklch(0.19 0.02 260);
   --foreground: oklch(0.93 0.01 250);
@@ -76,6 +122,15 @@ body {
   background: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-sans);
+}
+
+/* מילוי מיתוגי לכפתור הראשי ולבועת המשתמש; בלי --brand-gradient נשאר bg-primary */
+.brand-fill {
+  background-image: var(--brand-gradient, none);
+  color: var(--brand-fill-foreground, var(--primary-foreground));
+}
+.brand-fill:hover {
+  filter: brightness(0.97);
 }
 
 /* Markdown בתוך בועת הודעה */

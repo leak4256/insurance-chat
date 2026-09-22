@@ -1,5 +1,7 @@
+import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { brand } from "@/lib/brand";
 import { LogIn, LogOut, MessageCircleQuestion, ShieldCheck } from "lucide-react";
 
 /**
@@ -23,14 +25,25 @@ export function ChatHeader({
   onLogout?: () => void;
 }) {
   return (
-    <header className="border-b bg-card">
+    <header className="brand-header border-b bg-card">
       <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <MessageCircleQuestion className="h-5 w-5" aria-hidden />
-          </div>
+          {brand.logo ? (
+            <Image
+              src={brand.logo.src}
+              alt={brand.logo.alt}
+              width={brand.logo.width}
+              height={brand.logo.height}
+              className="h-12 w-auto object-contain"
+              loading="eager"
+            />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <MessageCircleQuestion className="h-5 w-5" aria-hidden />
+            </div>
+          )}
           <div>
-            <h1 className="text-base font-semibold leading-tight">העוזר הדיגיטלי של הסוכנות</h1>
+            <h1 className="text-base font-semibold leading-tight">{brand.name}</h1>
             <p className="text-xs text-muted-foreground">שאלות על ביטוח ופיננסים, בפשטות ובעברית</p>
           </div>
         </div>
