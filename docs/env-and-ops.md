@@ -33,6 +33,23 @@ Error [AI_RetryError]: unable to get local issuer certificate
 **מסקנה: אימות חי של הצ'אט חייב לרוץ על שרת הפיתוח של לאה ב-:3000, לא מתוך worktree.**
 מתוך worktree אפשר לאמת רק typecheck/lint/build ורינדור UI.
 
+### ⚠️ `npm run ingest` / `npm run eval` נפלו על שני חסמים בסביבה (01.11.2026)
+
+שניהם תוקנו, השורות כאן הן כדי שלא נאבד זמן אם זה יחזור.
+
+**1. החיבור הראשון ל-Voyage נתקע 10 שניות ונופל.**
+מתהליך node קר, מאחורי סינון ה-TLS של NetFree, `fetch` הראשון ל-`api.voyageai.com`
+נופל ב-`UND_ERR_CONNECT_TIMEOUT` — והניסיון הבא מצליח ב-300ms.
+`curl` עם ה-CA עובד מיד, וגם `tls.connect` של node מתחבר ב-66ms — כלומר זה לא התעודה
+ולא ה-DNS אלא undici. התיקון: `fetchWithRetry` ב-`src/ai/embedder.ts`
+(3 ניסיונות, backoff 500ms, גם על 429/5xx).
+
+**2. `@supabase/supabase-js` 2.110 דורש WebSocket גלובלי שאין ב-Node 20.**
+`getSupabase()` זורק `Node.js detected but native WebSocket not found`.
+ב-Next זה לא מתפוצץ (הרנטיים מספק את ה-global), ולכן זה פוגע **רק בסקריפטי tsx**.
+התיקון: `NODE_OPTIONS=--experimental-websocket` חווט ל-`ingest` ו-`eval` ב-`package.json`.
+Node על המכונה: v20.14.0.
+
 ---
 
 ## מגבלות המכונה

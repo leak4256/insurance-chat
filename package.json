@@ -7,8 +7,8 @@
     "build": "cross-env NODE_EXTRA_CA_CERTS=./certs/netfree-ca.pem next build",
     "start": "next start",
     "lint": "eslint",
-    "ingest": "cross-env NODE_EXTRA_CA_CERTS=./certs/netfree-ca.pem tsx scripts/ingest.ts",
-    "eval": "cross-env NODE_EXTRA_CA_CERTS=./certs/netfree-ca.pem tsx scripts/eval/run-eval.ts",
+    "ingest": "cross-env NODE_EXTRA_CA_CERTS=./certs/netfree-ca.pem NODE_OPTIONS=--experimental-websocket tsx scripts/ingest.ts",
+    "eval": "cross-env NODE_EXTRA_CA_CERTS=./certs/netfree-ca.pem NODE_OPTIONS=--experimental-websocket tsx scripts/eval/run-eval.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
