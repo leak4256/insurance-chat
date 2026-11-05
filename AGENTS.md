@@ -65,6 +65,28 @@ Do not open an archive that the current task does not touch — the split exists
 
 Talk to Lea in Hebrew. The `docs/` archives are written in Hebrew — keep them that way.
 
+## Skills
+
+Skills live in **`.agents/skills/<name>/SKILL.md`** — one source of truth, checked in.
+That path is the neutral one: Codex scans `.agents/skills` from the working directory
+up to the repo root, while Claude Code reads only `.claude/skills`. So after cloning,
+and after adding or renaming a skill, run:
+
+```
+node .agents/link-skills.mjs        # mirrors .agents/skills/ -> .claude/skills/
+```
+
+It creates links (Windows junctions, no admin needed), not copies, so the two paths
+cannot drift. `.claude/skills/` is gitignored because git on this machine has
+`core.symlinks=false` and would commit the link as duplicated content.
+
+Keep `SKILL.md` frontmatter to the six fields of the [Agent Skills spec](https://agentskills.io/specification)
+— `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` — and
+`name` identical to the directory name. Any other field is a single-vendor extension and
+makes packaging for claude.ai or the API fail outright.
+
+Existing skills: `ic-commit` — commit only the current session's work.
+
 ## Session wrap
 
 At the end of a substantive work session: `/ic-wrap` — updates the brief and the archives.

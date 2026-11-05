@@ -50,3 +50,7 @@ scripts/eval/golden-set.jsonl
 
 # design sources from clients (contain personal contact details)
 /design/
+
+# skills: authored in .agents/skills/, mirrored into .claude/skills/ by
+# `node .agents/link-skills.mjs` — the mirror is local links, never committed
+.claude/skills/
