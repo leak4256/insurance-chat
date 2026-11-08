@@ -36,6 +36,28 @@ function messageText(message: UIMessage): string {
  */
 const summaryCache = new Map<string, { olderCount: number; summary: string }>();
 
+/**
+ * כל כמה הודעות גבול הסיכום זז. בלי העיגול הגבול זחל בשתי הודעות בכל תור,
+ * המטמון החטיא בכל תור, והסיכום נבנה מחדש על כל הבלוק הישן — שרק גדל. זו גם
+ * קריאת LLM ש-`await`-ים עליה **לפני** שהסטרימינג מתחיל, כלומר הלקוחה מחכה לה.
+ *
+ * העיגול הוא כלפי מטה, ו**חלון ההודעות המלאות מתחיל בדיוק בגבול הזה** ולא
+ * במספר קבוע. זה העיקר: אחרת היו נופלות בין הכיסאות ההודעות שבין סוף הסיכום
+ * לתחילת החלון — לא בסיכום ולא בטקסט המלא. במחיר הזה החלון גדל בעד
+ * SUMMARY_REBUILD_EVERY הודעות בין בנייה לבנייה, וזה זול בהרבה מקריאה נוספת.
+ */
+const SUMMARY_REBUILD_EVERY = 6;
+
+/**
+ * כמה הודעות מתחילת השיחה נכנסות לסיכום: מה שחורג מחלון ההזזה, מעוגל למטה
+ * לכפולה של SUMMARY_REBUILD_EVERY. 0 = אין מה לסכם, השיחה נשלחת במלואה.
+ */
+export function summaryBoundary(messageCount: number, windowSize: number): number {
+  const beyondWindow = messageCount - windowSize;
+  if (beyondWindow <= 0) return 0;
+  return Math.floor(beyondWindow / SUMMARY_REBUILD_EVERY) * SUMMARY_REBUILD_EVERY;
+}
+
 async function summarizeOlderMessages(chatId: string, older: UIMessage[]): Promise<string> {
   const cached = summaryCache.get(chatId);
   if (cached && cached.olderCount === older.length) return cached.summary;
@@ -100,10 +122,12 @@ export async function POST(req: Request) {
   try {
     let windowed = messages;
     let historySummary: string | undefined;
-    if (messages.length > config.chat.historyWindow) {
-      const older = messages.slice(0, messages.length - config.chat.historyWindow);
-      windowed = messages.slice(-config.chat.historyWindow);
-      historySummary = await summarizeOlderMessages(chatId, older);
+    const covered = summaryBoundary(messages.length, config.chat.historyWindow);
+    if (covered > 0) {
+      // החלון מתחיל בדיוק בגבול הסיכום — הסיכום והטקסט המלא מכסים יחד את כל
+      // השיחה, בלי פער ובלי כפילות (ר' SUMMARY_REBUILD_EVERY)
+      windowed = messages.slice(covered);
+      historySummary = await summarizeOlderMessages(chatId, messages.slice(0, covered));
     }
 
     const result = streamText({
