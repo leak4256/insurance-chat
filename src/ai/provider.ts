@@ -23,6 +23,13 @@ const providers: Record<string, (modelId: string) => LanguageModel> = {
   },
 };
 
+/**
+ * לקוח הספק נבנה פעם אחת לכל מזהה מודל. בלי המטמון `getChatModel()` היה בונה
+ * אובייקט ספק חדש בכל בקשה, ובמסלול החם זה קורה פעמיים (צ'אט וסיכום).
+ * אובייקט המודל של ה-AI SDK הוא קונפיגורציה בלבד — אין בו מצב לכל בקשה.
+ */
+const modelCache = new Map<string, LanguageModel>();
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
@@ -30,6 +37,9 @@ function requireEnv(name: string): string {
 }
 
 export function resolveModel(spec: string): LanguageModel {
+  const cached = modelCache.get(spec);
+  if (cached) return cached;
+
   const slash = spec.indexOf("/");
   if (slash === -1) {
     throw new Error(`CHAT_MODEL must be "<provider>/<model-id>", got: ${spec}`);
@@ -40,7 +50,9 @@ export function resolveModel(spec: string): LanguageModel {
   if (!factory) {
     throw new Error(`Unknown AI provider "${provider}". Supported: ${Object.keys(providers).join(", ")}`);
   }
-  return factory(modelId);
+  const model = factory(modelId);
+  modelCache.set(spec, model);
+  return model;
 }
 
 export const getChatModel = () => resolveModel(config.chatModel);

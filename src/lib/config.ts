@@ -84,6 +84,14 @@ export const config = {
     reportCacheTtlMs: Number(process.env.SURENSE_REPORT_CACHE_TTL_MS ?? 15 * 60_000),
   },
 
+  /** קריאות Supabase (ר' src/lib/supabase.ts) */
+  supabase: {
+    /** תקרת המתנה לקריאה בודדת */
+    timeoutMs: Number(process.env.SUPABASE_TIMEOUT_MS ?? 15_000),
+    /** תקרת המתנה לכל הניסיונות החוזרים יחד (ר' src/lib/fetch-retry.ts) */
+    totalTimeoutMs: Number(process.env.SUPABASE_TOTAL_TIMEOUT_MS ?? 25_000),
+  },
+
   /** כתובת האפליקציה */
   appUrl: process.env.APP_URL ?? "http://localhost:3000",
 

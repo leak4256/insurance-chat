@@ -462,7 +462,14 @@ const reportCache = new Map<string, { at: number; content: ReportContent }>();
  */
 export async function getReportContent(customerId: string): Promise<ReportContent> {
   const cached = reportCache.get(customerId);
-  if (cached && Date.now() - cached.at < config.surense.reportCacheTtlMs) return cached.content;
+  if (cached && Date.now() - cached.at < config.surense.reportCacheTtlMs) {
+    // דחיפה לסוף המפה: הפינוי למטה זורק את הרשומה הראשונה, ובלי זה הוא היה
+    // זורק את הוותיקה ביותר גם כשהיא דווקא זו שבשימוש. `at` לא מתעדכן —
+    // קריאה אינה מרעננת את הנתונים, ולכן אסור לה להאריך את ה-TTL.
+    reportCache.delete(customerId);
+    reportCache.set(customerId, cached);
+    return cached.content;
+  }
 
   const fresh = await findFreshReports(customerId);
   const freshTypes = new Set(fresh.map(reportTypeOf));
