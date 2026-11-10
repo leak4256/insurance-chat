@@ -9,8 +9,10 @@ import { Input } from "@/components/ui/input";
 import { brand } from "@/lib/brand";
 import { ChatHeader, type AuthState } from "./chat-header";
 import { LoginCard } from "./login-card";
+import { messageText, mentionsLoginTool, stripLoginToolText } from "./message-text";
 import { MessageBubble, TypingIndicator } from "./message-bubble";
 import { SessionExpiryDialog } from "./session-expiry-dialog";
+import { knowledgeDocuments, knowledgePages } from "./sources";
 
 const MAX_MESSAGE_CHARS = 2000;
 
@@ -21,11 +23,17 @@ const SUGGESTIONS = [
 ];
 
 function hasVisibleText(message: UIMessage): boolean {
-  return message.parts.some((p) => p.type === "text" && p.text.trim().length > 0);
+  // אחרי ניקוי אזכור הכלי — הודעה שכולה "request_login" לא תצייר בועה ריקה
+  return stripLoginToolText(messageText(message)).length > 0;
 }
 
+/**
+ * בקשת התחברות — קריאה לכלי, או אזכור שלו בטקסט כשהמודל כתב את שמו במקום
+ * לקרוא לו. בשני המקרים הלקוחה מקבלת את כרטיס ההתחברות.
+ */
 function hasLoginRequest(message: UIMessage): boolean {
-  return message.parts.some((p) => p.type === "tool-request_login");
+  if (message.parts.some((p) => p.type === "tool-request_login")) return true;
+  return message.role === "assistant" && mentionsLoginTool(messageText(message));
 }
 
 export function Chat() {
@@ -116,6 +124,13 @@ export function Chat() {
 
   // כרטיס הכותרת מוצג רק כשאין כבר כרטיס שנפתח מתוך השיחה (מניעת כפילות)
   const showHeaderCard = headerCardOpen && lastLoginRequestId === null;
+
+  // המסמכים שחזרו מכלים בשיחה — לאימות שורת ה"מקור:" בכל בועה
+  const knownDocuments = useMemo(() => knowledgeDocuments(messages), [messages]);
+  // ...והעמודים שחזרו איתם — להסרת "עמ' N" מומצא מאותה שורה
+  const knownPages = useMemo(() => knowledgePages(messages), [messages]);
+  // ההודעה שנכתבת כרגע: האימות עליה מחכה לסיום ההזרמה
+  const streamingId = busy && messages.length > 0 ? messages[messages.length - 1].id : null;
 
   function submit(text: string) {
     const trimmed = text.trim();
@@ -210,8 +225,19 @@ export function Chat() {
 
           {messages.map((message) => (
             <div key={message.id} className="flex flex-col gap-3">
-              {(message.role === "user" || hasVisibleText(message) || busy) && (
-                <MessageBubble message={message} />
+              {/* `!hasLoginRequest` מצייר בועה גם לתשובה שהסתיימה ריקה — שם
+                  MessageBubble מציג משפט חלופי, כדי שלא יישאר מסך ריק.
+                  הודעה שכל תוכנה בקשת התחברות נשארת בלי בועה: יש לה כרטיס. */}
+              {(message.role === "user" ||
+                hasVisibleText(message) ||
+                busy ||
+                !hasLoginRequest(message)) && (
+                <MessageBubble
+                  message={message}
+                  knownDocuments={knownDocuments}
+                  knownPages={knownPages}
+                  streaming={message.id === streamingId}
+                />
               )}
               {/* הכרטיס נשאר גם אחרי הצלחה — הוא מציג בעצמו אישור "התחברתם בהצלחה" */}
               {message.id === lastLoginRequestId && (

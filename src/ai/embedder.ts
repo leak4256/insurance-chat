@@ -13,6 +13,30 @@ export interface Embedder {
 const VOYAGE_URL = "https://api.voyageai.com/v1/embeddings";
 /** Voyage מגביל עד 128 טקסטים לבקשה */
 const VOYAGE_BATCH_LIMIT = 128;
+/**
+ * ניסיונות חוזרים על כשל רשת או שגיאה חולפת (429/5xx).
+ * נדרש כי מאחורי סינון ה-TLS של NetFree החיבור הראשון מתהליך קר נתקע
+ * ונופל ב-UND_ERR_CONNECT_TIMEOUT, והניסיון הבא מצליח מיד.
+ */
+const VOYAGE_MAX_ATTEMPTS = 3;
+const VOYAGE_RETRY_DELAY_MS = 500;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function fetchWithRetry(init: RequestInit): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= VOYAGE_MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(VOYAGE_URL, init);
+      if (res.status !== 429 && res.status < 500) return res;
+      lastError = new Error(`Voyage embeddings failed (${res.status}): ${await res.text()}`);
+    } catch (err) {
+      lastError = err;
+    }
+    if (attempt < VOYAGE_MAX_ATTEMPTS) await sleep(VOYAGE_RETRY_DELAY_MS * attempt);
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
 
 class VoyageEmbedder implements Embedder {
   readonly model = process.env.EMBEDDING_MODEL ?? "voyage-3.5-lite";
@@ -25,7 +49,7 @@ class VoyageEmbedder implements Embedder {
     const results: number[][] = [];
     for (let i = 0; i < texts.length; i += VOYAGE_BATCH_LIMIT) {
       const batch = texts.slice(i, i + VOYAGE_BATCH_LIMIT);
-      const res = await fetch(VOYAGE_URL, {
+      const res = await fetchWithRetry({
         method: "POST",
         headers: {
           "Content-Type": "application/json",

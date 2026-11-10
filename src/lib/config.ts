@@ -26,6 +26,36 @@ export const config = {
     minSimilarity: Number(process.env.RAG_MIN_SIMILARITY ?? 0.35),
   },
 
+  /**
+   * חיפוש חי — גיבוי למאגר הידע (ר' src/lib/web-search.ts).
+   * בלי מפתח ומזהה מנוע הכלים לא נרשמים כלל והצ'אט מתנהג כמו קודם.
+   */
+  webSearch: {
+    /**
+     * מפתח Serper — תוצאות Google דרך API.
+     * (Google Custom Search JSON API נסגר ללקוחות חדשים ומסתיים ב-1.1.2027.)
+     */
+    serperApiKey: process.env.SERPER_API_KEY ?? "",
+    /** כמה תוצאות לכל חיפוש */
+    maxResults: Number(process.env.WEB_SEARCH_MAX_RESULTS ?? 5),
+    /** תקרת המתנה לניסיון בודד */
+    timeoutMs: Number(process.env.WEB_SEARCH_TIMEOUT_MS ?? 15_000),
+    /**
+     * תקרת המתנה ל**קריאת כלי אחת**, על כל הניסיונות החוזרים יחד. בלעדיה שלושה
+     * ניסיונות של timeoutMs כל אחד היו יכולים לבלוע לבדם את `maxDuration` של
+     * ראוט הצ'אט (120 שניות), ושרשרת חיפוש חי עושה כמה קריאות כאלה.
+     */
+    totalTimeoutMs: Number(process.env.WEB_SEARCH_TOTAL_TIMEOUT_MS ?? 25_000),
+    /** תקרת אורך לטקסט שנכנס להקשר המודל ממסמך חי */
+    docMaxChars: Number(process.env.WEB_DOC_MAX_CHARS ?? 20_000),
+    /** תקרת גודל להורדה (PDF של תנאים כלליים יכול להיות גדול) */
+    docMaxBytes: Number(process.env.WEB_DOC_MAX_BYTES ?? 8_000_000),
+    /** תוקף מטמון תוצאות חיפוש */
+    searchCacheTtlMs: Number(process.env.WEB_SEARCH_CACHE_TTL_MS ?? 60 * 60_000),
+    /** תוקף מטמון מסמכים (תנאים כלליים כמעט אינם משתנים) */
+    docCacheTtlMs: Number(process.env.WEB_DOC_CACHE_TTL_MS ?? 12 * 60 * 60_000),
+  },
+
   rateLimit: {
     /** חלון זמן במילישניות */
     windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS ?? 5 * 60_000),
@@ -71,6 +101,11 @@ export const config = {
     /** תקרת המתנה לתשובת התרחיש (Make עשוי להיות איטי מ-API ישיר) */
     timeoutMs: Number(process.env.MAKE_TIMEOUT_MS ?? 30_000),
     /**
+     * תקרת המתנה ל**קריאה אחת ל-Make**, על כל הניסיונות החוזרים יחד
+     * (ר' src/lib/fetch-retry.ts). מספיק לניסיון מת אחד ולאחד אמיתי אחריו.
+     */
+    totalTimeoutMs: Number(process.env.MAKE_TOTAL_TIMEOUT_MS ?? 45_000),
+    /**
      * גיל מקסימלי (בימים) של דוח קיים שעדיין נחשב טרי. מעבר לכך מופק דוח חדש
      * במקום למחזר — כדי לא להציג ללקוח נתוני מסלקה מיושנים.
      */
@@ -79,6 +114,14 @@ export const config = {
     reportMaxChars: Number(process.env.SURENSE_REPORT_MAX_CHARS ?? 40_000),
     /** תוקף המטמון בזיכרון לתוכן דוח (הפקה+הורדה+פענוח יקרים) */
     reportCacheTtlMs: Number(process.env.SURENSE_REPORT_CACHE_TTL_MS ?? 15 * 60_000),
+  },
+
+  /** קריאות Supabase (ר' src/lib/supabase.ts) */
+  supabase: {
+    /** תקרת המתנה לקריאה בודדת */
+    timeoutMs: Number(process.env.SUPABASE_TIMEOUT_MS ?? 15_000),
+    /** תקרת המתנה לכל הניסיונות החוזרים יחד (ר' src/lib/fetch-retry.ts) */
+    totalTimeoutMs: Number(process.env.SUPABASE_TOTAL_TIMEOUT_MS ?? 25_000),
   },
 
   /** כתובת האפליקציה */
