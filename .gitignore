@@ -42,7 +42,7 @@ next-env.d.ts
 
 # knowledge PDFs (customer documents stay out of git)
 knowledge/*.pdf
-knowledge/manifest.json
+#knowledge/manifest.json
 
 # RAG eval outputs + real golden set
 scripts/eval/results/
