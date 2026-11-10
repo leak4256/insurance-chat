@@ -12,9 +12,14 @@ export type AuditEvent =
   | "otp_failed"
   | "otp_locked"
   | "logout"
+  | "session_extended"
   | "report_read"
   | "admin_login"
-  | "admin_login_failed";
+  | "admin_login_failed"
+  | "admin_chat_otp_sent"
+  | "admin_chat_login"
+  | "admin_chat_login_failed"
+  | "admin_customer_selected";
 
 export function audit(event: AuditEvent, customerId?: string): void {
   console.log(JSON.stringify({ audit: event, customerId: customerId || undefined, at: new Date().toISOString() }));

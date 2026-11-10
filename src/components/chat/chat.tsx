@@ -7,10 +7,12 @@ import { SendHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { brand } from "@/lib/brand";
+import { AdminCard } from "./admin-card";
 import { ChatHeader, type AuthState } from "./chat-header";
 import { LoginCard } from "./login-card";
 import { messageText, mentionsLoginTool, stripLoginToolText } from "./message-text";
 import { MessageBubble, TypingIndicator } from "./message-bubble";
+import { SessionExpiryDialog } from "./session-expiry-dialog";
 import { knowledgeDocuments } from "./sources";
 
 const MAX_MESSAGE_CHARS = 2000;
@@ -37,16 +39,21 @@ function hasLoginRequest(message: UIMessage): boolean {
 
 export function Chat() {
   const [auth, setAuth] = useState<AuthState>({ authenticated: false });
+  // מתי נפתחת הודעת הניתוק ומתי הניתוק בפועל (epoch ms מקומי); null = לא מחוברים
+  const [deadlines, setDeadlines] = useState<{ warnAt: number; expiresAt: number } | null>(null);
   const [headerCardOpen, setHeaderCardOpen] = useState(false);
   // מזהה ההודעה שאחריה נפתח כרטיס הכותרת — מעגן אותו במקומו בשיחה,
   // אחרת גם אישור "התחברתם בהצלחה" היה נדחף אחרי כל הודעה חדשה.
   // null = נפתח לפני שהייתה הודעה כלשהי → מוצג בראש השיחה.
   const [headerCardAnchorId, setHeaderCardAnchorId] = useState<string | null>(null);
+  const [adminCardOpen, setAdminCardOpen] = useState(false);
+  // כפתור כניסת המנהל מוסתר מלקוחות — מופיע רק בכתובת עם ?admin
+  const [showAdminEntry, setShowAdminEntry] = useState(false);
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { messages, sendMessage, status, error, addToolResult } = useChat({
+  const { messages, sendMessage, setMessages, status, error, addToolResult } = useChat({
     // כלי צד-לקוח (FR-3): המודל מבקש להציג את כרטיס ההתחברות; ה-UI מצייר אותו
     async onToolCall({ toolCall }) {
       if (toolCall.toolName === "request_login") {
@@ -61,17 +68,67 @@ export function Chat() {
 
   const busy = status === "submitted" || status === "streaming";
 
-  // מצב ההזדהות נטען מהשרת (cookie httpOnly — לדפדפן אין גישה ישירה)
+  // מצב ההזדהות נטען מהשרת (cookie httpOnly — לדפדפן אין גישה ישירה).
+  // כולל הזמנים עד הודעת הניתוק — כך ההתחברות (והספירה) שורדות רענון עמוד.
+  function applySession(d: {
+    authenticated?: boolean;
+    firstName?: string;
+    admin?: boolean;
+    viaAdmin?: boolean;
+    warnInMs?: number;
+    expiresInMs?: number;
+  }) {
+    // admin/viaAdmin חסרים בתשובת ההארכה — אז נשמר המצב הקיים
+    if (!d.authenticated) {
+      setAuth((a) => ({ authenticated: false, admin: d.admin ?? a.admin }));
+      setDeadlines(null);
+      return;
+    }
+    setAuth((a) => ({
+      authenticated: true,
+      firstName: d.firstName,
+      admin: d.admin ?? a.admin,
+      viaAdmin: d.viaAdmin ?? a.viaAdmin,
+    }));
+    const now = Date.now();
+    setDeadlines(
+      typeof d.warnInMs === "number" && typeof d.expiresInMs === "number"
+        ? { warnAt: now + d.warnInMs, expiresAt: now + d.expiresInMs }
+        : null,
+    );
+  }
+
   useEffect(() => {
+    const adminEntry = new URLSearchParams(window.location.search).has("admin");
     fetch("/api/auth/session")
       .then((r) => r.json())
-      .then((d) => setAuth({ authenticated: !!d.authenticated, firstName: d.firstName }))
-      .catch(() => {});
+      .then((d) => {
+        setShowAdminEntry(adminEntry || !!d.admin);
+        applySession(d);
+      })
+      .catch(() => setShowAdminEntry(adminEntry));
   }, []);
+
+  // כל הודעה מאומתת מאריכה את ה-session בשרת (Set-Cookie בתשובת הצ'אט) —
+  // בסיום התשובה טוענים את הזמנים מחדש, כדי שהודעת הניתוק תזוז יחד איתו
+  const wasBusy = useRef(false);
+  useEffect(() => {
+    if (busy) {
+      wasBusy.current = true;
+      return;
+    }
+    if (!wasBusy.current) return;
+    wasBusy.current = false;
+    if (!auth.authenticated) return;
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then(applySession)
+      .catch(() => {});
+  }, [busy, auth.authenticated]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, status, headerCardOpen]);
+  }, [messages, status, headerCardOpen, adminCardOpen]);
 
   // כרטיס ההתחברות מוצג רק אחרי ההודעה האחרונה שביקשה אותו
   const lastLoginRequestId = useMemo(() => {
@@ -99,6 +156,11 @@ export function Chat() {
 
   function handleLoginSuccess(firstName: string, fromTool: boolean) {
     setAuth({ authenticated: true, firstName });
+    // הזמנים של ההתחברות החדשה מגיעים מהשרת (אותו מקור אמת כמו אחרי רענון)
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then(applySession)
+      .catch(() => {});
     // המשך שיחה טבעי (אפיון 12): אחרי הזדהות שנפתחה משאלה אישית —
     // הודעה קצרה שמחזירה את המודל לשאלה שנשארה פתוחה
     if (fromTool) sendMessage({ text: "התחברתי ✅" });
@@ -109,11 +171,44 @@ export function Chat() {
     setHeaderCardOpen(true);
   }
 
+  function handleAdminSelected(firstName: string) {
+    // שיחה חדשה לכל לקוח — אחרת ההיסטוריה (ונתוני הלקוח הקודם שבה) נשלחת למודל
+    setMessages([]);
+    setAuth({ authenticated: true, firstName, admin: true, viaAdmin: true });
+    // הזמנים להודעת הניתוק — מהשרת, כמו אחרי התחברות רגילה
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then(applySession)
+      .catch(() => {});
+    setAdminCardOpen(false);
+    setHeaderCardOpen(false);
+    setHeaderCardAnchorId(null);
+  }
+
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     setAuth({ authenticated: false });
+    setDeadlines(null);
+    setAdminCardOpen(false);
     setHeaderCardOpen(false);
     setHeaderCardAnchorId(null);
+  }
+
+  // ביטול הניתוק: השרת מנפיק session חדש לשעתיים
+  async function handleExtendSession(): Promise<boolean> {
+    try {
+      const res = await fetch("/api/auth/extend", { method: "POST" });
+      if (res.status === 401) {
+        // ה-session כבר פג — אין מה להאריך
+        applySession({ authenticated: false });
+        return false;
+      }
+      if (!res.ok) return false;
+      applySession(await res.json());
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   return (
@@ -122,7 +217,19 @@ export function Chat() {
         auth={auth}
         onLoginClick={openHeaderCard}
         onLogout={handleLogout}
+        showAdminEntry={showAdminEntry}
+        onAdminClick={() => setAdminCardOpen(true)}
       />
+
+      {auth.authenticated && deadlines && (
+        <SessionExpiryDialog
+          warnAt={deadlines.warnAt}
+          expiresAt={deadlines.expiresAt}
+          onExtend={handleExtendSession}
+          onExpired={handleLogout}
+          onLogout={handleLogout}
+        />
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto" role="log" aria-live="polite" aria-label="הודעות השיחה">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 py-6">
@@ -174,6 +281,15 @@ export function Chat() {
           ))}
 
           {status === "submitted" && <TypingIndicator />}
+
+          {adminCardOpen && (
+            <AdminCard
+              alreadyAdmin={!!auth.admin}
+              onAdminLogin={() => setAuth((a) => ({ ...a, admin: true }))}
+              onSelected={handleAdminSelected}
+              onCancel={() => setAdminCardOpen(false)}
+            />
+          )}
 
           {error && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-sm text-destructive">

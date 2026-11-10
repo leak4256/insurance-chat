@@ -67,8 +67,10 @@ export const config = {
   auth: {
     /** סוד לחתימת cookies (session + OTP). חובה בשלב 2 */
     sessionSecret: process.env.SESSION_SECRET ?? "",
-    /** תוקף session — פקיעה אחרי 30 דקות חוסר פעילות */
-    sessionTtlMs: Number(process.env.SESSION_TTL_MS ?? 30 * 60_000),
+    /** משך ההתחברות מהשימוש האחרון (מתגלגל — כל הודעה בצ'אט מאפסת) — שעתיים */
+    sessionTtlMs: Number(process.env.SESSION_TTL_MS ?? 2 * 60 * 60_000),
+    /** חלון האזהרה בסוף ההתחברות: הודעת ניתוק עם אפשרות ביטול — דקה */
+    sessionWarningMs: Number(process.env.SESSION_WARNING_MS ?? 60_000),
     /** תוקף קוד OTP — 10 דקות */
     otpTtlMs: Number(process.env.OTP_TTL_MS ?? 10 * 60_000),
     /** מספר ניסיונות מקסימלי לקוד */
@@ -128,6 +130,15 @@ export const config = {
   /** מסך הסוכן (העלאת PDF + חיבור Surense) */
   admin: {
     password: process.env.ADMIN_PASSWORD ?? "",
+    /**
+     * מיילים שמורשים להיכנס לצ'אט במצב מנהל ולבחור כל לקוח מ-Surense (לבדיקות).
+     * הכניסה עצמה בקוד חד-פעמי למייל — הרשימה רק קובעת למי נשלח קוד.
+     * אפשר לדרוס ב-ADMIN_CHAT_EMAILS (מופרד בפסיקים); ריק = מצב מנהל כבוי.
+     */
+    chatEmails: (process.env.ADMIN_CHAT_EMAILS ?? "leak4256@gmail.com,0548403015r@gmail.com")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
     /** תוקף session של הסוכן */
     sessionTtlMs: Number(process.env.ADMIN_SESSION_TTL_MS ?? 2 * 60 * 60_000),
     /** שם ה-bucket ב-Supabase Storage לקובצי הידע */

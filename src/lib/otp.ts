@@ -12,7 +12,11 @@ import { config } from "./config";
  * (found=false) — המסלול מחזיר תמיד אותה תשובה, והאימות פשוט ייכשל.
  */
 
+/** "admin" = כניסת מנהל לצ'אט; רשומה מסוג אחד לעולם לא מאמתת את הסוג השני */
+export type PendingKind = "customer" | "admin";
+
 interface PendingLogin {
+  kind: PendingKind;
   /** hash של קוד ה-OTP (או null כשהלקוח לא נמצא — אימות ייכשל תמיד) */
   codeHash: string | null;
   /** UUID של הלקוח ב-Surense (ריק כשלא נמצא) */
@@ -44,6 +48,7 @@ export function generateOtpCode(): string {
 
 /** יצירת בקשת התחברות ממתינה. מחזירה מזהה אקראי שנמסר ללקוח. */
 export function createPendingLogin(input: {
+  kind?: PendingKind;
   found: boolean;
   customerId?: string;
   firstName?: string;
@@ -53,6 +58,7 @@ export function createPendingLogin(input: {
   prune();
   const id = randomBytes(16).toString("base64url");
   pending.set(id, {
+    kind: input.kind ?? "customer",
     codeHash: input.found && input.code ? hashCode(input.code) : null,
     customerId: input.customerId ?? "",
     firstName: input.firstName ?? "",
@@ -65,13 +71,17 @@ export function createPendingLogin(input: {
 }
 
 export type VerifyResult =
-  | { ok: true; customerId: string; firstName: string }
+  | { ok: true; customerId: string; firstName: string; email: string }
   | { ok: false; reason: "invalid" | "expired" | "locked" };
 
-export function verifyPendingLogin(pendingId: string, code: string): VerifyResult {
+export function verifyPendingLogin(
+  pendingId: string,
+  code: string,
+  kind: PendingKind = "customer",
+): VerifyResult {
   prune();
   const entry = pending.get(pendingId);
-  if (!entry || entry.expiresAt < Date.now()) return { ok: false, reason: "expired" };
+  if (!entry || entry.expiresAt < Date.now() || entry.kind !== kind) return { ok: false, reason: "expired" };
   if (entry.attemptsLeft <= 0) return { ok: false, reason: "locked" };
 
   entry.attemptsLeft--;
@@ -85,7 +95,7 @@ export function verifyPendingLogin(pendingId: string, code: string): VerifyResul
   }
 
   pending.delete(pendingId);
-  return { ok: true, customerId: entry.customerId, firstName: entry.firstName };
+  return { ok: true, customerId: entry.customerId, firstName: entry.firstName, email: entry.email };
 }
 
 /** שליחה חוזרת: קוד חדש לאותה רשומה, בכפוף להשהיה. מחזירה את פרטי היעד. */
