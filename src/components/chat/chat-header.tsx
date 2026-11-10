@@ -2,7 +2,7 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { brand } from "@/lib/brand";
-import { LogIn, LogOut, MessageCircleQuestion, ShieldCheck } from "lucide-react";
+import { LogIn, LogOut, MessageCircleQuestion, ShieldCheck, UserCog } from "lucide-react";
 
 /**
  * כותרת הצ'אט (FR-10): כל עוד המשתמש לא מזוהה — כפתור התחברות עם כיתוב מזמין;
@@ -13,16 +13,25 @@ const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED !== "false";
 export interface AuthState {
   authenticated: boolean;
   firstName?: string;
+  /** מנהל/ת מחובר/ת במצב בדיקות (יכול/ה לבחור לקוח) */
+  admin?: boolean;
+  /** ה-session הנוכחי הוא לקוח שנבחר על ידי מנהל */
+  viaAdmin?: boolean;
 }
 
 export function ChatHeader({
   auth,
   onLoginClick,
   onLogout,
+  showAdminEntry = false,
+  onAdminClick,
 }: {
   auth: AuthState;
   onLoginClick?: () => void;
   onLogout?: () => void;
+  /** כפתור כניסת מנהל — רק כשהדף נפתח עם ?admin */
+  showAdminEntry?: boolean;
+  onAdminClick?: () => void;
 }) {
   return (
     <header className="brand-header border-b bg-card">
@@ -47,7 +56,21 @@ export function ChatHeader({
             <p className="text-xs text-muted-foreground">שאלות על ביטוח ופיננסים, בפשטות ובעברית</p>
           </div>
         </div>
-        {!AUTH_ENABLED ? (
+        {auth.admin ? (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-900">
+              <UserCog className="h-3.5 w-3.5" aria-hidden />
+              {auth.viaAdmin && auth.firstName ? `מנהל · צופה ב-${auth.firstName}` : "מנהל"}
+            </Badge>
+            <Button variant="outline" size="sm" onClick={onAdminClick}>
+              {auth.viaAdmin ? "החלפת לקוח" : "בחירת לקוח"}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onLogout} aria-label="ניתוק">
+              <LogOut aria-hidden />
+              ניתוק
+            </Button>
+          </div>
+        ) : !AUTH_ENABLED ? (
           <Badge variant="secondary">שאלות כלליות</Badge>
         ) : auth.authenticated ? (
           <div className="flex items-center gap-2">
@@ -61,10 +84,17 @@ export function ChatHeader({
             </Button>
           </div>
         ) : (
-          <Button variant="outline" size="sm" onClick={onLoginClick}>
-            <LogIn aria-hidden />
-            התחברו כדי לשאול על הביטוחים שלכם
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={onLoginClick}>
+              <LogIn aria-hidden />
+              התחברו כדי לשאול על הביטוחים שלכם
+            </Button>
+            {showAdminEntry && (
+              <Button variant="ghost" size="sm" onClick={onAdminClick} aria-label="כניסת מנהל">
+                <UserCog aria-hidden />
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </header>

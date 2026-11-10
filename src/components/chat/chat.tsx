@@ -7,6 +7,7 @@ import { SendHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { brand } from "@/lib/brand";
+import { AdminCard } from "./admin-card";
 import { ChatHeader, type AuthState } from "./chat-header";
 import { LoginCard } from "./login-card";
 import { messageText, mentionsLoginTool, stripLoginToolText } from "./message-text";
@@ -45,11 +46,14 @@ export function Chat() {
   // אחרת גם אישור "התחברתם בהצלחה" היה נדחף אחרי כל הודעה חדשה.
   // null = נפתח לפני שהייתה הודעה כלשהי → מוצג בראש השיחה.
   const [headerCardAnchorId, setHeaderCardAnchorId] = useState<string | null>(null);
+  const [adminCardOpen, setAdminCardOpen] = useState(false);
+  // כפתור כניסת המנהל מוסתר מלקוחות — מופיע רק בכתובת עם ?admin
+  const [showAdminEntry, setShowAdminEntry] = useState(false);
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { messages, sendMessage, status, error, addToolResult } = useChat({
+  const { messages, sendMessage, setMessages, status, error, addToolResult } = useChat({
     // כלי צד-לקוח (FR-3): המודל מבקש להציג את כרטיס ההתחברות; ה-UI מצייר אותו
     async onToolCall({ toolCall }) {
       if (toolCall.toolName === "request_login") {
@@ -69,15 +73,23 @@ export function Chat() {
   function applySession(d: {
     authenticated?: boolean;
     firstName?: string;
+    admin?: boolean;
+    viaAdmin?: boolean;
     warnInMs?: number;
     expiresInMs?: number;
   }) {
+    // admin/viaAdmin חסרים בתשובת ההארכה — אז נשמר המצב הקיים
     if (!d.authenticated) {
-      setAuth({ authenticated: false });
+      setAuth((a) => ({ authenticated: false, admin: d.admin ?? a.admin }));
       setDeadlines(null);
       return;
     }
-    setAuth({ authenticated: true, firstName: d.firstName });
+    setAuth((a) => ({
+      authenticated: true,
+      firstName: d.firstName,
+      admin: d.admin ?? a.admin,
+      viaAdmin: d.viaAdmin ?? a.viaAdmin,
+    }));
     const now = Date.now();
     setDeadlines(
       typeof d.warnInMs === "number" && typeof d.expiresInMs === "number"
@@ -87,10 +99,14 @@ export function Chat() {
   }
 
   useEffect(() => {
+    const adminEntry = new URLSearchParams(window.location.search).has("admin");
     fetch("/api/auth/session")
       .then((r) => r.json())
-      .then(applySession)
-      .catch(() => {});
+      .then((d) => {
+        setShowAdminEntry(adminEntry || !!d.admin);
+        applySession(d);
+      })
+      .catch(() => setShowAdminEntry(adminEntry));
   }, []);
 
   // כל הודעה מאומתת מאריכה את ה-session בשרת (Set-Cookie בתשובת הצ'אט) —
@@ -112,7 +128,7 @@ export function Chat() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, status, headerCardOpen]);
+  }, [messages, status, headerCardOpen, adminCardOpen]);
 
   // כרטיס ההתחברות מוצג רק אחרי ההודעה האחרונה שביקשה אותו
   const lastLoginRequestId = useMemo(() => {
@@ -157,10 +173,25 @@ export function Chat() {
     setHeaderCardOpen(true);
   }
 
+  function handleAdminSelected(firstName: string) {
+    // שיחה חדשה לכל לקוח — אחרת ההיסטוריה (ונתוני הלקוח הקודם שבה) נשלחת למודל
+    setMessages([]);
+    setAuth({ authenticated: true, firstName, admin: true, viaAdmin: true });
+    // הזמנים להודעת הניתוק — מהשרת, כמו אחרי התחברות רגילה
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then(applySession)
+      .catch(() => {});
+    setAdminCardOpen(false);
+    setHeaderCardOpen(false);
+    setHeaderCardAnchorId(null);
+  }
+
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     setAuth({ authenticated: false });
     setDeadlines(null);
+    setAdminCardOpen(false);
     setHeaderCardOpen(false);
     setHeaderCardAnchorId(null);
   }
@@ -188,6 +219,8 @@ export function Chat() {
         auth={auth}
         onLoginClick={openHeaderCard}
         onLogout={handleLogout}
+        showAdminEntry={showAdminEntry}
+        onAdminClick={() => setAdminCardOpen(true)}
       />
 
       {auth.authenticated && deadlines && (
@@ -251,6 +284,15 @@ export function Chat() {
           ))}
 
           {status === "submitted" && <TypingIndicator />}
+
+          {adminCardOpen && (
+            <AdminCard
+              alreadyAdmin={!!auth.admin}
+              onAdminLogin={() => setAuth((a) => ({ ...a, admin: true }))}
+              onSelected={handleAdminSelected}
+              onCancel={() => setAdminCardOpen(false)}
+            />
+          )}
 
           {error && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-sm text-destructive">

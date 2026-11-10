@@ -1,4 +1,4 @@
-import { customerSessionTiming, getCustomerSession } from "@/lib/session";
+import { customerSessionTiming, getCustomerSession, isAdminChatAuthenticated } from "@/lib/session";
 
 /**
  * מצב ההזדהות לתצוגת ה-UI (כפתור התחברות / תג "מחובר/ת" — FR-10).
@@ -6,11 +6,13 @@ import { customerSessionTiming, getCustomerSession } from "@/lib/session";
  */
 export async function GET() {
   try {
-    const session = await getCustomerSession();
-    if (!session) return Response.json({ authenticated: false });
+    const [session, admin] = await Promise.all([getCustomerSession(), isAdminChatAuthenticated()]);
+    if (!session) return Response.json({ authenticated: false, admin });
     return Response.json({
       authenticated: true,
       firstName: session.firstName,
+      admin,
+      viaAdmin: session.viaAdmin === true,
       ...customerSessionTiming(session),
     });
   } catch {

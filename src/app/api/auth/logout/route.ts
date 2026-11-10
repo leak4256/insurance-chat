@@ -1,5 +1,5 @@
 import { audit } from "@/lib/audit";
-import { clearCustomerSession, getCustomerSession } from "@/lib/session";
+import { clearAdminChatSession, clearCustomerSession, getCustomerSession } from "@/lib/session";
 
 /** ניתוק יזום (FR-8). */
 export async function POST() {
@@ -10,5 +10,7 @@ export async function POST() {
     // גם אם ה-session לא נקרא (SESSION_SECRET חסר וכד') — עדיין מוחקים את ה-cookie
   }
   await clearCustomerSession();
+  // ניתוק במצב מנהל מנתק גם את המנהל — אחרת "ניתוק" לא באמת מנתק
+  await clearAdminChatSession();
   return Response.json({ ok: true });
 }
