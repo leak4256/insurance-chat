@@ -23,7 +23,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { generateText, stepCountIs } from "ai";
-import { getChatModel, resolveModel } from "../../src/ai/provider";
+import { chatProviderOptions, getChatModel, resolveModel } from "../../src/ai/provider";
 import { buildSystemPrompt } from "../../src/ai/system-prompt";
 import { buildTools } from "../../src/ai/tools";
 import { searchKnowledge } from "../../src/ai/retrieval";
@@ -187,6 +187,7 @@ async function generateAnswer(question: string): Promise<{
       // זהה לראוט — כולל `activeTools: []`, ר' ההסבר שם
       stepNumber === MAX_STEPS - 1 ? { toolChoice: "none", activeTools: [] } : undefined,
     stopWhen: stepCountIs(MAX_STEPS),
+    providerOptions: chatProviderOptions(),
   });
   const toolCallSequence = steps.flatMap((s) => s.toolCalls.map((c) => c.toolName));
   const toolsCalled = [...new Set(toolCallSequence)];

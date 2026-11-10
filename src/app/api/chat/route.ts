@@ -5,7 +5,7 @@ import {
   streamText,
   type UIMessage,
 } from "ai";
-import { getChatModel, getSummaryModel } from "@/ai/provider";
+import { chatProviderOptions, getChatModel, getSummaryModel } from "@/ai/provider";
 import { buildSystemPrompt } from "@/ai/system-prompt";
 import { buildTools } from "@/ai/tools";
 import { config } from "@/lib/config";
@@ -163,6 +163,8 @@ export async function POST(req: Request) {
       prepareStep: ({ stepNumber }) =>
         stepNumber === MAX_STEPS - 1 ? { toolChoice: "none", activeTools: [] } : undefined,
       stopWhen: stepCountIs(MAX_STEPS),
+      // רמת החשיבה של Gemini — ר' chatProviderOptions ב-src/ai/provider.ts
+      providerOptions: chatProviderOptions(),
     });
 
     return result.toUIMessageStreamResponse({

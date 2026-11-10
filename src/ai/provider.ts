@@ -1,7 +1,7 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
-import type { LanguageModel } from "ai";
+import type { JSONValue, LanguageModel } from "ai";
 import { config } from "@/lib/config";
 
 /**
@@ -92,4 +92,25 @@ export function resolveModel(spec: string): LanguageModel {
 }
 
 export const getChatModel = () => resolveModel(config.chatModel);
+
+/**
+ * אפשרויות ספק לבקשות הצ'אט. כרגע דבר אחד: רמת החשיבה של Gemini.
+ *
+ * במודלי Gemini 3 החשיבה פועלת כברירת מחדל ברמה גבוהה, וזה מה שהאט את הצ'אט
+ * אחרי המעבר ל-`gemini-3.8-flash` (מדידה מ-10.11.2026, אותה שאלה, אותו
+ * תהליך חם): בברירת המחדל 31–39 שניות, 3–5 שלבים, עד ארבעה חיפושים חוזרים
+ * על אותו מונח, וכ-1,200 טוקני חשיבה לפני התשובה (השלב האחרון לבדו כ-10
+ * שניות). ב-`low`: 21–22 שניות, 3 שלבים, השלב האחרון כ-3 שניות.
+ * (מדידות מקומיות, כולל עיכוב החיבור של NetFree, כ-10 שניות לבקשה. בלעדיו,
+ * ב-`low`: כ-11 שניות עד המילה הראשונה. שאר הזמן הוא 2–3 סבבי מודל ברצף.)
+ * `minimal` אינו נתמך במודל הזה (400), ולכן `low` הוא הרצפה.
+ *
+ * ה-eval משתמש באותה פונקציה, כדי שימדוד את מה שרץ בפועל.
+ */
+export function chatProviderOptions(): Record<string, Record<string, JSONValue>> | undefined {
+  if (config.chatModel.startsWith("google/")) {
+    return { google: { thinkingConfig: { thinkingLevel: "low" } } };
+  }
+  return undefined;
+}
 export const getSummaryModel = () => resolveModel(config.summaryModel);
