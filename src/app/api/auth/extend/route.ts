@@ -14,7 +14,11 @@ export async function POST() {
     const session = await getCustomerSession();
     if (!session) return Response.json({ authenticated: false }, { status: 401 });
 
-    const renewed = await setCustomerSession(session.customerId, session.firstName);
+    const renewed = await setCustomerSession(
+      session.customerId,
+      session.firstName,
+      session.viaAdmin === true,
+    );
     audit("session_extended", session.customerId);
 
     return Response.json({
