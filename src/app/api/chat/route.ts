@@ -10,6 +10,7 @@ import { buildSystemPrompt } from "@/ai/system-prompt";
 import { buildTools } from "@/ai/tools";
 import { config } from "@/lib/config";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { isWebSearchConfigured } from "@/lib/web-search";
 import {
   customerSessionSetCookieHeader,
   getCustomerSession,
@@ -17,6 +18,18 @@ import {
 } from "@/lib/session";
 
 export const maxDuration = 120;
+
+/**
+ * תקרת שלבים לבקשה אחת. חיפוש חי צורך שלבים: מאגר → חיפוש → פתיחת מסמך
+ * (ולפעמים עוד אחד) → תשובה.
+ *
+ * ב**שלב האחרון הכלים מנוטרלים** (`toolChoice: "none"`), אבל זו אינה ערובה —
+ * ר' ההערה ב-prepareStep למטה. מה שבאמת מונע הגעה לתקרה הוא
+ * `MAX_LIVE_SEARCH_CALLS` ב-src/ai/tools.ts: בלעדיו המודל קורא לחיפוש החי
+ * שוב ושוב כשהאתר הציבורי מחזיר שגיאה, מרוקן את שמונת השלבים, והלקוחה מקבלת
+ * תשובה ריקה. במדידה מ-09.11 אחרי התקרה: 4–5 שלבים לשאלה, ולא 8.
+ */
+const MAX_STEPS = 8;
 
 function jsonError(status: number, message: string, headers?: HeadersInit) {
   return Response.json({ error: message }, { status, headers });
@@ -135,10 +148,21 @@ export async function POST(req: Request) {
       system: buildSystemPrompt({
         historySummary,
         customerFirstName: session ? session.firstName : null,
+        liveSearch: isWebSearchConfigured(),
       }),
       messages: convertToModelMessages(windowed),
       tools: buildTools(session),
-      stopWhen: stepCountIs(5),
+      // stepNumber מתחיל ב-0, כך שהשלב המותר האחרון הוא MAX_STEPS - 1.
+      //
+      // `activeTools: []` מסיר את הכלים מהבקשה לגמרי, ו-`toolChoice: "none"`
+      // נשאר כהצהרה נוספת. **שימו לב ששניהם יחד אינם ערובה:** במדידה מ-09.11
+      // נשלח לשלב האחרון `tools=null toolConfig=null` — אפס כלים — ו-Gemini
+      // בכל זאת החזיר קריאה ל-`open_public_document` מתוך הקשר השיחה, כלומר
+      // תשובה באורך 0. רשת הביטוח ללקוחה היא המשפט החלופי ב-message-bubble.tsx.
+      // ר' הרוויזיה 09.11 ב-docs/decisions.md.
+      prepareStep: ({ stepNumber }) =>
+        stepNumber === MAX_STEPS - 1 ? { toolChoice: "none", activeTools: [] } : undefined,
+      stopWhen: stepCountIs(MAX_STEPS),
     });
 
     return result.toUIMessageStreamResponse({
