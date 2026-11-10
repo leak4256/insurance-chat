@@ -1,7 +1,7 @@
 import { fetchWithRetry as fetchWithRetryShared } from "./fetch-retry";
 import { getDocumentProxy } from "unpdf";
 import { config } from "./config";
-import { isAllowedHost, isGovHost, parseAllowedUrl } from "./web-sources";
+import { GENERAL_SOURCE_HOSTS, isAllowedHost, isGovHost, parseAllowedUrl } from "./web-sources";
 
 /**
  * חיפוש חי — **גיבוי** למאגר הידע של הסוכנות, לא תחליף לו.
@@ -122,12 +122,15 @@ function fileFormatOf(url: URL): string | null {
 /**
  * השאילתה שנשלחת לגוגל, עם מסנן `site:` כדי שההגבלה תחול כבר בחיפוש.
  *
- * אתר שצוין → `site:<אתר>`. לא צוין → `site:gov.il`: שאלה שלא נקשרה לחברה מסוימת
- * היא שאלה כללית או רגולטורית, ושם התשובה ממילא. קבוצת OR של כל רשימת ההיתר
- * נמדדה ב-43 מילים — מעבר למגבלת אורך השאילתה של גוגל, שהייתה חותכת אותה בשקט.
+ * אתר שצוין → `site:<אתר>`. לא צוין → gov.il והמקורות הכלליים (כל זכות): שאלה שלא
+ * נקשרה לחברה מסוימת היא שאלה כללית או רגולטורית, ושם התשובה ממילא. קבוצת OR של
+ * **כל** רשימת ההיתר נמדדה ב-43 מילים — מעבר למגבלת אורך השאילתה של גוגל, שהייתה
+ * חותכת אותה בשקט; שני אתרים בלבד רחוקים מהמגבלה.
  */
 function buildQuery(query: string, site?: string): string {
-  return `${query} site:${site ?? "gov.il"}`;
+  if (site) return `${query} site:${site}`;
+  const sites = ["gov.il", ...GENERAL_SOURCE_HOSTS].map((h) => `site:${h}`).join(" OR ");
+  return `${query} (${sites})`;
 }
 
 /**

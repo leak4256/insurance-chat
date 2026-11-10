@@ -40,7 +40,16 @@ export const SOURCES: { host: string; names: string[] }[] = [
   { host: "more.co.il", names: [] }, // מפנה ל-moreinvest.co.il
   { host: "psagot.co.il", names: ["פסגות"] },
   { host: "xnes.co.il", names: ["אקסלנס", "הפניקס בית השקעות"] },
+  // מידע על זכויות — לא ממשלתי (עמותה), ולכן `official: false`. נוסף 10.11.2026
+  // לבקשת לאה: מסביר זכויות ומפנה למקור הרגולטורי. אומת חי באותו יום.
+  { host: "kolzchut.org.il", names: ["כל זכות", "כל-זכות"] },
 ];
+
+/**
+ * מקורות כלליים — נכללים בחיפוש גם כשלא צוינה חברה (ר' `buildQuery` ב-web-search.ts).
+ * gov.il מטופל בנפרד כי הוא מכסה כל תת-דומיין.
+ */
+export const GENERAL_SOURCE_HOSTS = ["kolzchut.org.il"];
 
 export const ALLOWED_SOURCE_HOSTS = SOURCES.map((s) => s.host);
 
