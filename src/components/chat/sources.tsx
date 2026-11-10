@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { ExternalLink, FileText } from "lucide-react";
 import type { UIMessage } from "ai";
 import { sourceHref } from "@/lib/utils";
-import { messageText, type KnownPages } from "./message-text";
+import { messageText } from "./message-text";
 
 interface Source {
   document: string;
@@ -41,7 +41,7 @@ const MAX_KNOWLEDGE_SOURCES = 3;
  */
 /**
  * שמות המסמכים שבאמת חזרו מכלי ב**כל השיחה** — הבסיס לאימות שורת ה"מקור:"
- * (ר' `stripUnverifiedSourceLine` ב-message-text.ts).
+ * (ר' `citesKnowledgeDocument` ב-message-text.ts).
  *
  * נאסף על פני כל ההודעות ולא על ההודעה הנוכחית בלבד, כי תשובה יכולה לצטט
  * בצדק מסמך שחזר בתור קודם ונותר בהקשר (נצפה 04.11.2026). מסמכים רשמיים
@@ -76,34 +76,6 @@ export function knowledgeDocuments(messages: UIMessage[]): string[] {
     }
   }
   return [...names];
-}
-
-/**
- * מספרי העמודים שחזרו מ-`search_knowledge` בכל השיחה, לפי שם מסמך — הבסיס
- * להסרת עמוד מומצא משורת ה"מקור:" (ר' `stripUnverifiedPageRefs`). קטע בלי עמוד
- * (`page: null`, כל מסמכי ה-txt) לא מוסיף דבר, ולכן מסמך כזה נשאר בלי עמודים
- * מותרים. נאסף על פני כל ההודעות מאותה סיבה כמו `knowledgeDocuments`.
- */
-export function knowledgePages(messages: UIMessage[]): KnownPages {
-  const pages: KnownPages = new Map();
-  for (const message of messages) {
-    if (message.role !== "assistant") continue;
-    for (const part of message.parts) {
-      if (!("state" in part) || part.state !== "output-available") continue;
-      if (part.type !== "tool-search_knowledge") continue;
-      const output = part.output as
-        | { found: boolean; chunks: { document: string; page: number | null }[] }
-        | undefined;
-      if (!output?.found) continue;
-      for (const chunk of output.chunks) {
-        if (!chunk.document || chunk.page == null) continue;
-        const set = pages.get(chunk.document) ?? new Set<number>();
-        set.add(chunk.page);
-        pages.set(chunk.document, set);
-      }
-    }
-  }
-  return pages;
 }
 
 export function extractSources(
@@ -167,7 +139,9 @@ export function extractSources(
 export function SourceChips({ sources }: { sources: Source[] }) {
   if (sources.length === 0) return null;
   return (
-    <div className="mt-2 flex flex-wrap gap-1.5" aria-label="מקורות">
+    <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label="מקורות">
+      {/* במקום שורת "מקור:" בטקסט, שמוסרת מההצגה (ר' stripSourceLine) */}
+      <span className="text-xs text-muted-foreground">מקורות:</span>
       {sources.map((s) =>
         s.url ? (
           <a

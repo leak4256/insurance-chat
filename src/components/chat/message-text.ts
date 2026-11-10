@@ -90,77 +90,16 @@ export function citesKnowledgeDocument(text: string, knownDocuments: string[]): 
 }
 
 /**
- * מספרי העמודים שחזרו מ-`search_knowledge` בשיחה, לפי שם מסמך.
- * מסמך טקסט (בלי עמודים, `page: null`) אינו מופיע כאן כלל.
- */
-export type KnownPages = Map<string, Set<number>>;
-
-/**
- * הפניית עמוד בשורת המקור: "עמ' 12", "עמ׳ 3-4", "עמוד 5" — כולל המפריד שלפניה
- * (פסיק או מקף), כדי שהסרתה לא תשאיר "שם מסמך," תלוי באוויר. סוגריים אינם
- * נבלעים כאן — "(עמ' 7)" משאיר "()" שמנוקה אחר כך, ו"(חלק א, עמ' 5)" שומר על
- * הסוגר הסוגר של שם המסמך.
- * הבדיקה שלפני "עמ" מוודאת שזו מילה שלמה ולא סוף של מילה אחרת.
- */
-const PAGE_REF_SOURCE = String.raw`[ \t]*[,،\-–—]*[ \t]*(?<![֐-׿])(?:עמ(?:וד|['׳’])?|ע['׳’])[ \t]*(\d+)(?:[ \t]*[-–][ \t]*(\d+))?`;
-
-/**
- * הסרת הפניות עמוד שאין להן כיסוי בקטעים שחזרו מהכלי — בדיקה **דטרמיניסטית**.
+ * הסרת שורת "מקור:" מההצגה — **תמיד**, גם כשהיא מאומתת (החלטת לאה, 10.11.2026).
  *
- * המקרה (נצפה 10.11.2026): מסמכי ה-txt של המאגר נטענים בלי עמודים, והמודל
- * (Gemini) כתב "מקור: …, עמ' 1" — עמוד שלא קיים, בהשראת הדוגמה בפרומפט. שם
- * המסמך אמיתי, ולכן `stripUnverifiedSourceLine` לא תופס את זה.
- *
- * ההפניה נבדקת מול המסמך ששמו מופיע **באותו מקטע** של שורת המקור (מקטעים
- * מופרדים ב-";"), לא מול כל עמוד שחזר בשיחה: "עמ' 1" ליד מסמך טקסט אינו נהיה
- * אמיתי בגלל שמסמך PDF אחר החזיר את עמוד 1. מסמך רשמי מהחיפוש החי אינו מחזיר
- * עמודים, ולכן גם הפניית עמוד אליו מוסרת — אין לנו נתון שמאמת אותה.
- *
- * רק ההפניה יורדת; שם המסמך והתשובה נשארים. שורה בלי הפניות עמוד, או שכולן
- * מאומתות — הטקסט כמו שהוא.
+ * המסמכים כבר מוצגים כתגיות מתחת לתשובה, תחת הכותרת "מקורות:", והשורה בטקסט
+ * רק כפלה אותן. המודל ממשיך לכתוב את השורה, כי היא מה שמאמת שהתשובה מצטטת
+ * מסמך (`citesKnowledgeDocument`) — ולכן ההסרה נעשית בהצגה בלבד, על הטקסט
+ * שכבר נבדק. נקרא גם בזמן ההזרמה: הביטוי תופס גם שורה שנכתבה רק בחלקה, כך
+ * שהשורה לא מהבהבת לפני שהיא נעלמת.
  */
-export function stripUnverifiedPageRefs(text: string, knownPages: KnownPages): string {
-  const line = sourceLine(text);
-  if (line == null || !new RegExp(PAGE_REF_SOURCE).test(line)) return text;
-
-  const cleanSegment = (segment: string): string => {
-    const haystack = normalizeForMatch(segment);
-    const allowed = new Set<number>();
-    for (const [doc, pages] of knownPages) {
-      const needle = normalizeForMatch(doc);
-      if (needle.length >= 3 && haystack.includes(needle)) pages.forEach((p) => allowed.add(p));
-    }
-    return segment
-      .replace(new RegExp(PAGE_REF_SOURCE, "g"), (ref, from: string, to?: string) =>
-        [from, to].filter(Boolean).every((n) => allowed.has(Number(n))) ? ref : "",
-      )
-      .replace(/\(\s*\)/g, "")
-      .replace(/[ \t]+/g, " ")
-      .trim();
-  };
-
-  const cleaned = line
-    .split(";")
-    .map(cleanSegment)
-    .filter(Boolean)
-    .join("; ");
-  if (cleaned === line) return text;
-
-  if (process.env.NODE_ENV !== "production") {
-    console.warn(`הפניית עמוד לא מאומתת הוסרה משורת המקור: "${line}"`);
-  }
-  // החלפה לפי פונקציה: ב-`cleaned` עלול להיות "$", שהוא תחביר מיוחד במחרוזת חלופה
-  return text.replace(SOURCE_LINE_RE, (whole, captured: string) =>
-    whole.replace(captured, () => cleaned),
-  );
-}
-
-/** הסרת שורת "מקור:" שאינה מאומתת. שורה מאומתת, או היעדר שורה — הטקסט כמו שהוא. */
-export function stripUnverifiedSourceLine(text: string, knownDocuments: string[]): string {
-  if (sourceLineIsVerified(text, knownDocuments)) return text;
-  if (process.env.NODE_ENV !== "production") {
-    console.warn(`שורת מקור לא מאומתת הוסרה מההצגה: "${sourceLine(text)}"`);
-  }
+export function stripSourceLine(text: string): string {
+  if (sourceLine(text) == null) return text;
   return text
     .replace(SOURCE_LINE_RE, "")
     .replace(/[ \t]+$/gm, "")
