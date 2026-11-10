@@ -1,4 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { config } from "./config";
+import { fetchWithRetry } from "./fetch-retry";
 
 /**
  * לקוח Supabase לצד שרת בלבד (service role). אסור לייבא מקובץ client component.
@@ -12,6 +14,24 @@ export function getSupabase(): SupabaseClient {
   if (!url || !key) {
     throw new Error("Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY environment variables");
   }
-  client = createClient(url, key, { auth: { persistSession: false } });
+  client = createClient(url, key, {
+    auth: { persistSession: false },
+    global: {
+      /**
+       * כל קריאות Supabase עוברות דרך ניסיון חוזר: מאחורי NetFree הקריאה
+       * הראשונה מתהליך קר נופלת ב-`fetch failed` בלי שיצאה בכלל (ב-05.11.2026
+       * זה הפיל את search_knowledge — "match_chunks failed").
+       *
+       * retryAfterSend נשאר כבוי. במסלול הצ'אט יש כאן רק קריאה אחת —
+       * `match_chunks` — אבל ingest ומסכי האדמין **כן** כותבים (שורות במסד
+       * וקבצים ב-storage), וחזרה על כתיבה שאולי כבר בוצעה הייתה משכפלת אותה.
+       */
+      fetch: (input, init) =>
+        fetchWithRetry(input, init, {
+          timeoutMs: config.supabase.timeoutMs,
+          totalTimeoutMs: config.supabase.totalTimeoutMs,
+        }),
+    },
+  });
   return client;
 }

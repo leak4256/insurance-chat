@@ -7,6 +7,14 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { findCustomerByIdAndEmail, isSurenseConfigured } from "@/lib/surense";
 
 /**
+ * תקציב הזמן של קריאה אחת ל-Make הוא עד `MAKE_TOTAL_TIMEOUT_MS` (45 שניות
+ * כברירת מחדל, ר' src/lib/fetch-retry.ts), ולכן הראוט חייב תקרה משלו: בלעדיה
+ * הוא מקבל את ברירת המחדל של הפלטפורמה, ואם היא קטנה מהתקציב הלקוחה רואה
+ * שגיאת שער גנרית במקום ההודעה שלנו בעברית.
+ */
+export const maxDuration = 60;
+
+/**
  * שלב א' של ההתחברות (אפיון 6.1): ת"ז + אימייל → אימות מול Surense → קוד למייל.
  *
  * מניעת enumeration: אותה תשובה בדיוק בין אם הלקוח נמצא ובין אם לא —

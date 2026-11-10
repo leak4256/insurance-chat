@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { extractText, getDocumentProxy } from "unpdf";
 import { config } from "./config";
+import { fetchWithRetry } from "./fetch-retry";
 
 /**
  * גישת Surense דרך Make.com (רוויזיה 20.07.2026 — מחליף את סעיף 11 באפיון).
@@ -36,19 +37,34 @@ type MakeAction =
   | "create_report"
   | "report_url";
 
+/**
+ * הפעולה היחידה כאן שאינה אידמפוטנטית: היא יוצרת דוח בתיק הלקוח. לכן אסור
+ * לחזור עליה אחרי כשל שבו ייתכן שהבקשה כבר הגיעה — ר' retryAfterSend.
+ */
+const MUTATING_ACTIONS: ReadonlySet<MakeAction> = new Set<MakeAction>(["create_report"]);
+
 async function callMake<T>(action: MakeAction, params: Record<string, string | number>): Promise<T> {
   if (!isSurenseConfigured()) {
     throw new Error("חיבור Make אינו מוגדר — חסרים MAKE_WEBHOOK_URL / MAKE_WEBHOOK_SECRET");
   }
-  const res = await fetch(config.surense.makeWebhookUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-make-apikey": config.surense.makeWebhookSecret,
+  // ניסיון חוזר, ולא fetch יחיד: מאחורי NetFree הקריאה הראשונה מתהליך קר
+  // נופלת ב-`fetch failed` בלי שיצאה כלל, וכרטיס ההתחברות נפל עליה (05.11.2026).
+  const res = await fetchWithRetry(
+    config.surense.makeWebhookUrl,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-make-apikey": config.surense.makeWebhookSecret,
+      },
+      body: JSON.stringify({ action, ...params }),
     },
-    body: JSON.stringify({ action, ...params }),
-    signal: AbortSignal.timeout(config.surense.timeoutMs),
-  });
+    {
+      timeoutMs: config.surense.timeoutMs,
+      totalTimeoutMs: config.surense.totalTimeoutMs,
+      retryAfterSend: !MUTATING_ACTIONS.has(action),
+    },
+  );
   const text = await res.text();
   if (!res.ok) {
     throw new Error(`Make webhook (${action}) failed (${res.status}): ${text.slice(0, 200)}`);
@@ -412,7 +428,11 @@ async function findFreshReports(customerId: string): Promise<SurenseReport[]> {
  * לקורא ולא נכנס להודעות שגיאה (הוא קישור גישה ציבורי לתיק הלקוח).
  */
 async function downloadReportText(url: string): Promise<string> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(config.surense.timeoutMs) });
+  const res = await fetchWithRetry(url, undefined, {
+    timeoutMs: config.surense.timeoutMs,
+    totalTimeoutMs: config.surense.totalTimeoutMs,
+    retryAfterSend: true, // הורדה בלבד
+  });
   if (!res.ok) throw new Error(`הורדת קובץ הדוח נכשלה (${res.status})`);
 
   const pdf = await getDocumentProxy(new Uint8Array(await res.arrayBuffer()));
@@ -442,7 +462,14 @@ const reportCache = new Map<string, { at: number; content: ReportContent }>();
  */
 export async function getReportContent(customerId: string): Promise<ReportContent> {
   const cached = reportCache.get(customerId);
-  if (cached && Date.now() - cached.at < config.surense.reportCacheTtlMs) return cached.content;
+  if (cached && Date.now() - cached.at < config.surense.reportCacheTtlMs) {
+    // דחיפה לסוף המפה: הפינוי למטה זורק את הרשומה הראשונה, ובלי זה הוא היה
+    // זורק את הוותיקה ביותר גם כשהיא דווקא זו שבשימוש. `at` לא מתעדכן —
+    // קריאה אינה מרעננת את הנתונים, ולכן אסור לה להאריך את ה-TTL.
+    reportCache.delete(customerId);
+    reportCache.set(customerId, cached);
+    return cached.content;
+  }
 
   const fresh = await findFreshReports(customerId);
   const freshTypes = new Set(fresh.map(reportTypeOf));
