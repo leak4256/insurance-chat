@@ -67,8 +67,10 @@ export const config = {
   auth: {
     /** סוד לחתימת cookies (session + OTP). חובה בשלב 2 */
     sessionSecret: process.env.SESSION_SECRET ?? "",
-    /** תוקף session — פקיעה אחרי 30 דקות חוסר פעילות */
-    sessionTtlMs: Number(process.env.SESSION_TTL_MS ?? 30 * 60_000),
+    /** משך ההתחברות מהשימוש האחרון (מתגלגל — כל הודעה בצ'אט מאפסת) — שעתיים */
+    sessionTtlMs: Number(process.env.SESSION_TTL_MS ?? 2 * 60 * 60_000),
+    /** חלון האזהרה בסוף ההתחברות: הודעת ניתוק עם אפשרות ביטול — דקה */
+    sessionWarningMs: Number(process.env.SESSION_WARNING_MS ?? 60_000),
     /** תוקף קוד OTP — 10 דקות */
     otpTtlMs: Number(process.env.OTP_TTL_MS ?? 10 * 60_000),
     /** מספר ניסיונות מקסימלי לקוד */

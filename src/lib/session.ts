@@ -4,8 +4,11 @@ import { signPayload, verifyPayload } from "./signing";
 
 /**
  * ניהול session (אפיון סעיף 6.1): cookie חתום httpOnly + Secure + SameSite,
- * מכיל את ה-UUID של הלקוח ב-Surense. פקיעה אחרי 30 דקות חוסר פעילות —
- * ההארכה (sliding) נעשית במסלול הצ'אט על כל בקשה מאומתת.
+ * מכיל את ה-UUID של הלקוח ב-Surense. ההתחברות נמשכת שעתיים מהשימוש האחרון
+ * (מתגלגלת: כל הודעה מאומתת בצ'אט מאפסת את הספירה) ושורדת רענון עמוד,
+ * כי היא יושבת ב-cookie. אחרי שעתיים של חוסר שימוש ה-UI מציג דקת אזהרה עם
+ * אפשרות ביטול; לכן ה-cookie תקף שעתיים + דקת האזהרה, וביטול הניתוק
+ * מנפיק session חדש (/api/auth/extend).
  * אין שום נתון אישי במסד — הכול בתוך ה-cookie החתום בלבד.
  */
 
@@ -31,23 +34,40 @@ function cookieOptions(maxAgeMs: number) {
   };
 }
 
-/** ערך ה-cookie של session לקוח (לשימוש גם בכותרת Set-Cookie ידנית בתשובת streaming) */
-export function buildCustomerSessionCookie(customerId: string, firstName: string): {
+/** כמה זמן ה-cookie תקף בפועל: משך ההתחברות + חלון האזהרה */
+function customerCookieLifetimeMs(): number {
+  return config.auth.sessionTtlMs + config.auth.sessionWarningMs;
+}
+
+/** session חדש (תום תוקף מחושב מעכשיו) וה-cookie שמכיל אותו */
+function buildCustomerSessionCookie(customerId: string, firstName: string): {
+  session: CustomerSession;
   name: string;
   value: string;
   options: ReturnType<typeof cookieOptions>;
 } {
-  const session: CustomerSession = {
-    customerId,
-    firstName,
-    exp: Date.now() + config.auth.sessionTtlMs,
-  };
-  return { name: CUSTOMER_COOKIE, value: signPayload(session), options: cookieOptions(config.auth.sessionTtlMs) };
+  const lifetimeMs = customerCookieLifetimeMs();
+  const session: CustomerSession = { customerId, firstName, exp: Date.now() + lifetimeMs };
+  return { session, name: CUSTOMER_COOKIE, value: signPayload(session), options: cookieOptions(lifetimeMs) };
 }
 
-export async function setCustomerSession(customerId: string, firstName: string): Promise<void> {
-  const { name, value, options } = buildCustomerSessionCookie(customerId, firstName);
+export async function setCustomerSession(customerId: string, firstName: string): Promise<CustomerSession> {
+  const { session, name, value, options } = buildCustomerSessionCookie(customerId, firstName);
   (await cookies()).set(name, value, options);
+  return session;
+}
+
+/**
+ * זמנים לתצוגת ה-UI, יחסיים ל"עכשיו" (ולא חותמות זמן מוחלטות) כדי שהפרשי שעון
+ * בין השרת לדפדפן לא יזיזו את האזהרה.
+ * warnInMs — עד תחילת הודעת הניתוק; expiresInMs — עד הניתוק בפועל.
+ */
+export function customerSessionTiming(session: CustomerSession): {
+  warnInMs: number;
+  expiresInMs: number;
+} {
+  const expiresInMs = Math.max(0, session.exp - Date.now());
+  return { warnInMs: Math.max(0, expiresInMs - config.auth.sessionWarningMs), expiresInMs };
 }
 
 export async function getCustomerSession(): Promise<CustomerSession | null> {
