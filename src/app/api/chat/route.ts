@@ -118,7 +118,7 @@ export async function POST(req: Request) {
     });
 
     return result.toUIMessageStreamResponse({
-      // הארכת session מתגלגלת: כל בקשה מאומתת מאפסת את חלון 30 הדקות (אפיון 6.1)
+      // הארכת session מתגלגלת: כל בקשה מאומתת מאפסת את חלון השעתיים (אפיון 6.1)
       headers: session ? { "Set-Cookie": customerSessionSetCookieHeader(session) } : undefined,
     });
   } catch (err) {
