@@ -11,7 +11,7 @@ import { ChatHeader, type AuthState } from "./chat-header";
 import { LoginCard } from "./login-card";
 import { messageText, mentionsLoginTool, stripLoginToolText } from "./message-text";
 import { MessageBubble, TypingIndicator } from "./message-bubble";
-import { knowledgeDocuments, knowledgePages } from "./sources";
+import { knowledgeDocuments } from "./sources";
 
 const MAX_MESSAGE_CHARS = 2000;
 
@@ -86,8 +86,6 @@ export function Chat() {
 
   // המסמכים שחזרו מכלים בשיחה — לאימות שורת ה"מקור:" בכל בועה
   const knownDocuments = useMemo(() => knowledgeDocuments(messages), [messages]);
-  // ...והעמודים שחזרו איתם — להסרת "עמ' N" מומצא מאותה שורה
-  const knownPages = useMemo(() => knowledgePages(messages), [messages]);
   // ההודעה שנכתבת כרגע: האימות עליה מחכה לסיום ההזרמה
   const streamingId = busy && messages.length > 0 ? messages[messages.length - 1].id : null;
 
@@ -161,7 +159,6 @@ export function Chat() {
                 <MessageBubble
                   message={message}
                   knownDocuments={knownDocuments}
-                  knownPages={knownPages}
                   streaming={message.id === streamingId}
                 />
               )}

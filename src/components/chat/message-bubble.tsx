@@ -7,9 +7,7 @@ import {
   mentionsLoginTool,
   messageText,
   stripLoginToolText,
-  stripUnverifiedPageRefs,
-  stripUnverifiedSourceLine,
-  type KnownPages,
+  stripSourceLine,
 } from "./message-text";
 import { extractSources, SourceChips } from "./sources";
 
@@ -63,33 +61,24 @@ const markdownComponents = {
   ),
 };
 
-const NO_PAGES: KnownPages = new Map();
-
 export function MessageBubble({
   message,
   knownDocuments = [],
-  knownPages = NO_PAGES,
   streaming = false,
 }: {
   message: UIMessage;
   /** מסמכי השיחה לאימות שורת ה"מקור:" (ר' knowledgeDocuments ב-sources.tsx) */
   knownDocuments?: string[];
-  /** עמודי המסמכים שחזרו בשיחה — להסרת "עמ' N" שאין לו כיסוי (ר' knowledgePages) */
-  knownPages?: KnownPages;
-  /** ההודעה עדיין נכתבת — אימות שורת המקור מחכה לסיום, אחרת השורה מהבהבת */
+  /** ההודעה עדיין נכתבת — התגיות מחכות לסיום, יחד עם שורת המקור שמאמתת אותן */
   streaming?: boolean;
 }) {
   const isUser = message.role === "user";
   // האזכור בטקסט מוסר מההצגה; הכרטיס עצמו נפתח ב-chat.tsx (ר' message-text.ts)
   const assistantText = stripLoginToolText(messageText(message));
-  const text = isUser
-    ? messageText(message)
-    : streaming
-      ? assistantText
-      : stripUnverifiedPageRefs(
-          stripUnverifiedSourceLine(assistantText, knownDocuments),
-          knownPages,
-        );
+  // שורת ה"מקור:" לא מוצגת בטקסט — המסמכים מוצגים כתגיות תחת "מקורות:" (ר'
+  // stripSourceLine). האימות והתגיות עדיין נשענים עליה, ולכן היא נבדקת על
+  // `assistantText` לפני ההסרה.
+  const text = isUser ? messageText(message) : stripSourceLine(assistantText);
   // תגיות מסמכי המאגר רק כשהתשובה באמת מצטטת מסמך. בזמן ההזרמה שורת ה"מקור:"
   // עוד לא נכתבה, ולכן התגיות מופיעות עם סיום התשובה — יחד עם הציטוט עצמו.
   const sources = isUser
