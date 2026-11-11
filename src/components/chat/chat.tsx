@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { brand } from "@/lib/brand";
 import { AdminCard } from "./admin-card";
 import { ChatHeader, type AuthState } from "./chat-header";
-import { LoginCard } from "./login-card";
+import { DataDateNotice, LoginCard } from "./login-card";
 import { messageText, mentionsLoginTool, stripLoginToolText } from "./message-text";
 import { MessageBubble, TypingIndicator } from "./message-bubble";
 import { SessionExpiryDialog } from "./session-expiry-dialog";
@@ -47,6 +47,8 @@ export function Chat() {
   // null = נפתח לפני שהייתה הודעה כלשהי → מוצג בראש השיחה.
   const [headerCardAnchorId, setHeaderCardAnchorId] = useState<string | null>(null);
   const [adminCardOpen, setAdminCardOpen] = useState(false);
+  // התחברות דרך כרטיס ההתחברות בתצוגה הזו — אז הודעת תאריך הנתונים כבר בכרטיס
+  const [loggedInHere, setLoggedInHere] = useState(false);
   // כפתור כניסת המנהל מוסתר מלקוחות — מופיע רק בכתובת עם ?admin
   const [showAdminEntry, setShowAdminEntry] = useState(false);
   const [input, setInput] = useState("");
@@ -155,6 +157,7 @@ export function Chat() {
   }
 
   function handleLoginSuccess(firstName: string, fromTool: boolean) {
+    setLoggedInHere(true);
     setAuth({ authenticated: true, firstName });
     // הזמנים של ההתחברות החדשה מגיעים מהשרת (אותו מקור אמת כמו אחרי רענון)
     fetch("/api/auth/session")
@@ -174,6 +177,7 @@ export function Chat() {
   function handleAdminSelected(firstName: string) {
     // שיחה חדשה לכל לקוח — אחרת ההיסטוריה (ונתוני הלקוח הקודם שבה) נשלחת למודל
     setMessages([]);
+    setLoggedInHere(false);
     setAuth({ authenticated: true, firstName, admin: true, viaAdmin: true });
     // הזמנים להודעת הניתוק — מהשרת, כמו אחרי התחברות רגילה
     fetch("/api/auth/session")
@@ -187,6 +191,7 @@ export function Chat() {
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    setLoggedInHere(false);
     setAuth({ authenticated: false });
     setDeadlines(null);
     setAdminCardOpen(false);
@@ -248,6 +253,11 @@ export function Chat() {
               </div>
             </div>
           )}
+
+          {/* הודעת תאריך הנתונים — כשהלקוחה כבר מחוברת בלי שהתחברה בתצוגה
+              הזו (רענון עמוד, מצב מנהל). אחרי התחברות כאן היא מוצגת בכרטיס
+              ההתחברות עצמו. ה-key מרענן את החודש במעבר בין לקוחות במצב מנהל. */}
+          {auth.authenticated && !loggedInHere && <DataDateNotice key={auth.firstName ?? ""} />}
 
           {/* כרטיס כותרת שנפתח לפני ההודעה הראשונה — מעוגן בראש השיחה */}
           {showHeaderCard && headerCardAnchorId === null && (
