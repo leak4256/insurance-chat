@@ -9,7 +9,8 @@
     "lint": "eslint",
     "ingest": "cross-env NODE_EXTRA_CA_CERTS=./certs/netfree-ca.pem NODE_OPTIONS=--experimental-websocket tsx scripts/ingest.ts",
     "eval": "cross-env NODE_EXTRA_CA_CERTS=./certs/netfree-ca.pem NODE_OPTIONS=--experimental-websocket tsx scripts/eval/run-eval.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prompt-compare": "cross-env NODE_EXTRA_CA_CERTS=./certs/netfree-ca.pem NODE_OPTIONS=--experimental-websocket PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 tsx scripts/promptfoo/compare.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.86",
@@ -38,6 +39,7 @@
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "promptfoo": "^0.125.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.1",
     "typescript": "^5"

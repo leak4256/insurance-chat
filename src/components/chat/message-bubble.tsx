@@ -6,6 +6,8 @@ import {
   citesKnowledgeDocument,
   mentionsLoginTool,
   messageText,
+  sourceLine,
+  stripGeneralDisclaimer,
   stripLoginToolText,
   stripSourceLine,
 } from "./message-text";
@@ -78,7 +80,6 @@ export function MessageBubble({
   // שורת ה"מקור:" לא מוצגת בטקסט — המסמכים מוצגים כתגיות תחת "מקורות:" (ר'
   // stripSourceLine). האימות והתגיות עדיין נשענים עליה, ולכן היא נבדקת על
   // `assistantText` לפני ההסרה.
-  const text = isUser ? messageText(message) : stripSourceLine(assistantText);
   // תגיות מסמכי המאגר רק כשהתשובה באמת מצטטת מסמך. בזמן ההזרמה שורת ה"מקור:"
   // עוד לא נכתבה, ולכן התגיות מופיעות עם סיום התשובה — יחד עם הציטוט עצמו.
   const sources = isUser
@@ -86,6 +87,11 @@ export function MessageBubble({
     : extractSources(message, {
         knowledgeCited: !streaming && citesKnowledgeDocument(assistantText, knownDocuments),
       });
+  // שורת ההבהרה ("ההסבר כאן כללי…") רק לתשובה בלי מקור (ר' stripGeneralDisclaimer)
+  const hasSource = streaming ? sourceLine(assistantText) != null : sources.length > 0;
+  const text = isUser
+    ? messageText(message)
+    : stripGeneralDisclaimer(stripSourceLine(assistantText), hasSource);
 
   return (
     <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>

@@ -358,6 +358,18 @@ function sourceMonth(customer: SurenseCustomer, type: ReportType): string | unde
 }
 
 /**
+ * לאיזה חודש נכונים נתוני הלקוח (YYYY-MM) — להודעה הקבועה שמוצגת מיד אחרי
+ * ההתחברות. המסלקה קודמת: היא מקור הנתונים הפנסיוניים, ועדכון שלה הוא
+ * "משיכת מסלקה" שהסוכנת מבצעת. לקוח בלי נתוני מסלקה — חודש הפרודוקציה.
+ * undefined = לא ידוע, ואז לא מציגים תאריך.
+ */
+export function dataValidityMonth(customer: SurenseCustomer): string | undefined {
+  return (
+    sourceMonth(customer, REPORT_TYPES.preTreatment) ?? sourceMonth(customer, REPORT_TYPES.production)
+  );
+}
+
+/**
  * שדות הדוח כפי ששורנס מחזיר בפועל. שימו לב שהמזהה מגיע בשם שונה לפי הפעולה:
  * search_reports מחזיר `id`, ואילו create_report מחזיר {success, reportId}.
  */

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LockKeyhole, MailCheck, ShieldCheck } from "lucide-react";
+import { CalendarClock, LockKeyhole, MailCheck, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -23,6 +23,40 @@ async function postJson(url: string, body: unknown): Promise<{ status: number; d
   });
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   return { status: res.status, data };
+}
+
+/** "2026-06" → "יוני 2026" */
+function formatMonth(month: string): string {
+  const [y, m] = month.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString("he-IL", { month: "long", year: "numeric" });
+}
+
+/**
+ * הודעה קבועה מיד אחרי ההתחברות (לבקשת לאה, 11.11.2026): לאיזה חודש הנתונים
+ * נכונים, ואיך מקבלים עדכניים יותר. קבועה ולא מהמודל — כך היא מופיעה תמיד,
+ * והתאריך מגיע ישר מ-Surense. בלי חודש ידוע — לא מוצגת.
+ */
+export function DataDateNotice() {
+  const [month, setMonth] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/customer/data-date")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setMonth(typeof d?.month === "string" ? d.month : null))
+      .catch(() => {});
+  }, []);
+
+  if (!month) return null;
+  return (
+    <div className="flex items-start gap-2 rounded-2xl rounded-tr-md border bg-card px-4 py-2.5 text-sm shadow-sm">
+      <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+      <p>
+        הנתונים שלכם מעודכנים לחודש <strong>{formatMonth(month)}</strong>.
+        <br />
+        לקבלת נתונים עדכניים יותר, אפשר לפנות לסוכנת ולבקש משיכת נתונים מהמסלקה.
+      </p>
+    </div>
+  );
 }
 
 export function LoginCard({ onSuccess }: { onSuccess: (firstName: string) => void }) {
@@ -117,11 +151,12 @@ export function LoginCard({ onSuccess }: { onSuccess: (firstName: string) => voi
 
   if (step === "done") {
     return (
-      <div className="flex w-full justify-start">
+      <div className="flex w-full flex-col items-start gap-2">
         <div className="flex items-center gap-2 rounded-2xl rounded-tr-md border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800 shadow-sm">
           <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden />
           התחברתם בהצלחה! עכשיו אפשר לשאול גם על הביטוחים האישיים שלכם.
         </div>
+        <DataDateNotice />
       </div>
     );
   }

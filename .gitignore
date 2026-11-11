@@ -54,3 +54,6 @@ scripts/eval/golden-set.jsonl
 # skills: authored in .agents/skills/, mirrored into .claude/skills/ by
 # `node .agents/link-skills.mjs` — the mirror is local links, never committed
 .claude/skills/
+
+# Promptfoo comparison outputs (answers + judge reasoning)
+scripts/promptfoo/results/
